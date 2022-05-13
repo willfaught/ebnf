@@ -400,11 +400,11 @@ based on these 3, determine if given syntax can be parsed top down with lookahea
 show conflicting productions if not
 */
 
-func DeterministicL1(g *Grammar) bool {
-	// A | B: first(A) and first(B) must be disjoint
-	// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
-	// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
-	// No left recursion: A = A...
-	// symbol sets: first, follow
-	return false
-}
+// func DeterministicL1(g *Grammar) bool {
+// A | B: first(A) and first(B) must be disjoint
+// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
+// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
+// No left recursion: A = A...
+// symbol sets: first, follow
+// return false
+// }
