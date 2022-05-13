@@ -40,13 +40,13 @@ type Term struct {
 	Factors []*Factor
 }
 
-// ParserError has all the parse errors.
-type ParserError struct {
+// ParseError has all the parse errors.
+type ParseError struct {
 	Errs []error
 }
 
 // Error returns all the error strings joined by a newline.
-func (e ParserError) Error() string {
+func (e ParseError) Error() string {
 	ss := make([]string, len(e.Errs))
 	for i, err := range e.Errs {
 		ss[i] = err.Error()
@@ -66,7 +66,7 @@ func Parse(s string) (*Grammar, error) {
 		errs = append(errs, p.errs...)
 	}
 	if len(errs) > 0 {
-		return nil, ParserError{Errs: errs}
+		return nil, ParseError{Errs: errs}
 	}
 	return g, nil
 }
