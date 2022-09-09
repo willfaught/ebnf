@@ -311,6 +311,16 @@ func (p *parser) expect(t token) {
 }
 
 func (p *parser) grammar() *Grammar {
+	if p.token != ident {
+		p.errs = append(p.errs, expectedTokenError{
+			textError: textError{
+				col:  p.tokenCol,
+				line: p.tokenLine,
+			},
+			actual:   p.token,
+			expected: ident,
+		})
+	}
 	var ps []*Prod
 	for p.token == ident {
 		ps = append(ps, p.prod())

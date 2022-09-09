@@ -71,7 +71,14 @@ func TestParseValid(t *testing.T) {
 
 func TestParseInvalid(t *testing.T) {
 	for _, test := range []string{
-		`S = S`, // TODO: But is error correct?
+		``,
+		`S`,
+		`S S`,
+		`S .`,
+		`S =`,
+		`S = .`,
+		`S = S`,
+		`S S .`,
 	} {
 		t.Log(test)
 		if _, err := Parse(test); err == nil {
@@ -79,5 +86,3 @@ func TestParseInvalid(t *testing.T) {
 		}
 	}
 }
-
-// TODO: More testing
