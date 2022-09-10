@@ -420,3 +420,75 @@ show conflicting productions if not
 // symbol sets: first, follow
 // return false
 // }
+
+// Validate checks that production identifiers are capitalized and defined.
+func (g *Grammar) Validate() error {
+	var errs []error
+	defined, undefined := map[string]struct{}{}, map[string]struct{}{}
+	for _, p := range g.Prods {
+		if _, ok := defined[p.Ident]; ok {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Ident))
+		}
+		if r, _ := utf8.DecodeRuneInString(p.Ident); !unicode.IsUpper(r) {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Ident))
+		}
+		defined[p.Ident] = struct{}{}
+	}
+	traverse(g, func(item any) {
+		switch item := item.(type) {
+		case *Factor:
+			if len(item.Ident) > 0 {
+				if _, ok := undefined[item.Ident]; ok {
+					return
+				}
+				if r, _ := utf8.DecodeRuneInString(item.Ident); unicode.IsUpper(r) {
+					if _, ok := defined[item.Ident]; !ok {
+						defined[item.Ident] = struct{}{}
+						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Ident))
+					}
+				}
+			}
+		}
+	})
+	if len(errs) > 0 {
+		return Error{Errs: errs}
+	}
+	return nil
+}
+
+func traverse(item any, visit func(any)) {
+	visit(item)
+	switch item := item.(type) {
+	case *Grammar:
+		for _, p := range item.Prods {
+			visit(p)
+			traverse(p, visit)
+		}
+	case *Prod:
+		visit(item.Expr)
+		traverse(item.Expr, visit)
+	case *Expr:
+		for _, t := range item.Terms {
+			visit(t)
+			traverse(t, visit)
+		}
+	case *Term:
+		for _, f := range item.Factors {
+			visit(f)
+			traverse(f, visit)
+		}
+	case *Factor:
+		if item.Paren != nil {
+			visit(item.Paren)
+			traverse(item.Paren, visit)
+		}
+		if item.Brak != nil {
+			visit(item.Brak)
+			traverse(item.Brak, visit)
+		}
+		if item.Brace != nil {
+			visit(item.Brace)
+			traverse(item.Brace, visit)
+		}
+	}
+}
