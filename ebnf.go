@@ -126,6 +126,7 @@ type Factor struct {
 }
 
 // Grammar is an abstract syntax tree for a grammar.
+// The first production defines the start identifier.
 type Grammar struct {
 	Productions []*Production
 }
