@@ -1,5 +1,6 @@
-// Package ebnf parses a variant of extended Backus-Naur form (EBNF) called [Wirth Syntax Notation] (WSN).
+// Package ebnf represents and parses a variant of [Extended Backus-Naur Form] called [Wirth Syntax Notation].
 //
+// [Extended Backus-Naur Form]: https://en.wikipedia.org/wiki/Extended_Backus–Naur_form
 // [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
 package ebnf
 
@@ -62,14 +63,14 @@ func traverse(item any, visit func(any)) {
 	visit(item)
 	switch item := item.(type) {
 	case *Grammar:
-		for _, p := range item.Prods {
+		for _, p := range item.Productions {
 			visit(p)
 			traverse(p, visit)
 		}
-	case *Prod:
-		visit(item.Expr)
-		traverse(item.Expr, visit)
-	case *Expr:
+	case *Production:
+		visit(item.Expression)
+		traverse(item.Expression, visit)
+	case *Expression:
 		for _, t := range item.Terms {
 			visit(t)
 			traverse(t, visit)
@@ -80,52 +81,52 @@ func traverse(item any, visit func(any)) {
 			traverse(f, visit)
 		}
 	case *Factor:
-		if item.Paren != nil {
-			visit(item.Paren)
-			traverse(item.Paren, visit)
+		if item.Group != nil {
+			visit(item.Group)
+			traverse(item.Group, visit)
 		}
-		if item.Brak != nil {
-			visit(item.Brak)
-			traverse(item.Brak, visit)
+		if item.Option != nil {
+			visit(item.Option)
+			traverse(item.Option, visit)
 		}
-		if item.Brace != nil {
-			visit(item.Brace)
-			traverse(item.Brace, visit)
+		if item.Repetition != nil {
+			visit(item.Repetition)
+			traverse(item.Repetition, visit)
 		}
 	}
 }
 
 // Error has one or more errors.
 type Error struct {
-	Errs []error
+	Errors []error
 }
 
 // Error returns all the error strings joined by a newline.
 func (e Error) Error() string {
-	ss := make([]string, len(e.Errs))
-	for i, err := range e.Errs {
+	ss := make([]string, len(e.Errors))
+	for i, err := range e.Errors {
 		ss[i] = err.Error()
 	}
 	return strings.Join(ss, "\n")
 }
 
-// Expr is the right side of a production.
-type Expr struct {
+// Expression is the right side of a production.
+type Expression struct {
 	Terms []*Term
 }
 
 // Factor is a concrete form that can be sequenced.
 type Factor struct {
-	Ident   string
-	Literal string
-	Paren   *Expr
-	Brak    *Expr
-	Brace   *Expr
+	Group      *Expression
+	Identifier string
+	Literal    string
+	Option     *Expression
+	Repetition *Expression
 }
 
 // Grammar is an abstract syntax tree for a grammar.
 type Grammar struct {
-	Prods []*Prod
+	Productions []*Production
 }
 
 // Parse returns a Grammar for a valid grammar, or an error otherwise.
@@ -140,7 +141,7 @@ func Parse(s string) (*Grammar, error) {
 		errs = append(errs, p.errs...)
 	}
 	if len(errs) > 0 {
-		return nil, Error{Errs: errs}
+		return nil, Error{Errors: errs}
 	}
 	return g, nil
 }
@@ -149,33 +150,33 @@ func Parse(s string) (*Grammar, error) {
 func (g *Grammar) Validate() error {
 	var errs []error
 	defined, undefined := map[string]struct{}{}, map[string]struct{}{}
-	for _, p := range g.Prods {
-		if _, ok := defined[p.Ident]; ok {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Ident))
+	for _, p := range g.Productions {
+		if _, ok := defined[p.Identifier]; ok {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Identifier))
 		}
-		if r, _ := utf8.DecodeRuneInString(p.Ident); !unicode.IsUpper(r) {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Ident))
+		if r, _ := utf8.DecodeRuneInString(p.Identifier); !unicode.IsUpper(r) {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Identifier))
 		}
-		defined[p.Ident] = struct{}{}
+		defined[p.Identifier] = struct{}{}
 	}
 	traverse(g, func(item any) {
 		switch item := item.(type) {
 		case *Factor:
-			if len(item.Ident) > 0 {
-				if _, ok := undefined[item.Ident]; ok {
+			if len(item.Identifier) > 0 {
+				if _, ok := undefined[item.Identifier]; ok {
 					return
 				}
-				if r, _ := utf8.DecodeRuneInString(item.Ident); unicode.IsUpper(r) {
-					if _, ok := defined[item.Ident]; !ok {
-						defined[item.Ident] = struct{}{}
-						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Ident))
+				if r, _ := utf8.DecodeRuneInString(item.Identifier); unicode.IsUpper(r) {
+					if _, ok := defined[item.Identifier]; !ok {
+						defined[item.Identifier] = struct{}{}
+						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Identifier))
 					}
 				}
 			}
 		}
 	})
 	if len(errs) > 0 {
-		return Error{Errs: errs}
+		return Error{Errors: errs}
 	}
 	return nil
 }
@@ -214,10 +215,10 @@ show conflicting productions if not
 // return false
 // }
 
-// Prod is a production.
-type Prod struct {
-	Ident string
-	Expr  *Expr
+// Production is a production.
+type Production struct {
+	Identifier string
+	Expression *Expression
 }
 
 // Term is an alternative.
@@ -412,29 +413,29 @@ func (p *parser) grammar() *Grammar {
 			expected: ident,
 		})
 	}
-	var ps []*Prod
+	var ps []*Production
 	for p.token == ident {
 		ps = append(ps, p.prod())
 	}
-	return &Grammar{Prods: ps}
+	return &Grammar{Productions: ps}
 }
 
-func (p *parser) prod() *Prod {
-	prod := &Prod{Ident: p.text}
+func (p *parser) prod() *Production {
+	prod := &Production{Identifier: p.text}
 	p.nextToken()
 	p.expect(eql)
-	prod.Expr = p.expr()
+	prod.Expression = p.expr()
 	p.expect(period)
 	return prod
 }
 
-func (p *parser) expr() *Expr {
+func (p *parser) expr() *Expression {
 	ts := []*Term{p.term()}
 	for p.token == bar {
 		p.nextToken()
 		ts = append(ts, p.term())
 	}
-	return &Expr{Terms: ts}
+	return &Expression{Terms: ts}
 }
 
 func (p *parser) term() *Term {
@@ -449,22 +450,22 @@ func (p *parser) factor() *Factor {
 	var f Factor
 	switch p.token {
 	case ident:
-		f.Ident = p.text
+		f.Identifier = p.text
 		p.nextToken()
 	case literal:
 		f.Literal = p.text
 		p.nextToken()
 	case lparen:
 		p.nextToken()
-		f.Paren = p.expr()
+		f.Group = p.expr()
 		p.expect(rparen)
 	case lbrak:
 		p.nextToken()
-		f.Brak = p.expr()
+		f.Option = p.expr()
 		p.expect(rbrak)
 	case lbrace:
 		p.nextToken()
-		f.Brace = p.expr()
+		f.Repetition = p.expr()
 		p.expect(rbrace)
 	default:
 		p.errs = append(p.errs, unexpectedTokenError{
