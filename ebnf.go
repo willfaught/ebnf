@@ -1,4 +1,6 @@
-// Package ebnf parses extended Backus-Naur Form (EBNF) grammars.
+// Package ebnf parses a variant of extended Backus-Naur form (EBNF) called [Wirth Syntax Notation] (WSN).
+//
+// [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
 package ebnf
 
 import (
