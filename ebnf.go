@@ -12,84 +12,6 @@ import (
 	"unicode/utf8"
 )
 
-// Expr is the right side of a production.
-type Expr struct {
-	Terms []*Term
-}
-
-// Factor is a concrete form that can be sequenced.
-type Factor struct {
-	Ident   string
-	Literal string
-	Paren   *Expr
-	Brak    *Expr
-	Brace   *Expr
-}
-
-// Grammar is an abstract syntax tree for a grammar.
-type Grammar struct {
-	Prods []*Prod
-}
-
-// Prod is a production.
-type Prod struct {
-	Ident string
-	Expr  *Expr
-}
-
-// Term is an alternative.
-type Term struct {
-	Factors []*Factor
-}
-
-// Error has one or more errors.
-type Error struct {
-	Errs []error
-}
-
-// Error returns all the error strings joined by a newline.
-func (e Error) Error() string {
-	ss := make([]string, len(e.Errs))
-	for i, err := range e.Errs {
-		ss[i] = err.Error()
-	}
-	return strings.Join(ss, "\n")
-}
-
-// Parse returns a Grammar for a valid grammar, or an error otherwise.
-func Parse(s string) (*Grammar, error) {
-	p := newParser(bytes.NewBufferString(s))
-	g := p.grammar()
-	var errs []error
-	if len(p.lexer.errs) > 0 {
-		errs = p.lexer.errs
-	}
-	if len(p.errs) > 0 {
-		errs = append(errs, p.errs...)
-	}
-	if len(errs) > 0 {
-		return nil, Error{Errs: errs}
-	}
-	return g, nil
-}
-
-type token int
-
-const (
-	ident   token = 0
-	literal token = 2
-	lparen  token = 3
-	lbrak   token = 4
-	lbrace  token = 5
-	bar     token = 6
-	eql     token = 7
-	rparen  token = 8
-	rbrak   token = 9
-	rbrace  token = 10
-	period  token = 11
-	other   token = 12
-)
-
 var tokenString = map[token]string{
 	lparen: "(",
 	lbrak:  "[",
@@ -136,14 +58,180 @@ func tokenValue(t token, text string) string {
 	return s
 }
 
-type textError struct {
-	line, col int
+func traverse(item any, visit func(any)) {
+	visit(item)
+	switch item := item.(type) {
+	case *Grammar:
+		for _, p := range item.Prods {
+			visit(p)
+			traverse(p, visit)
+		}
+	case *Prod:
+		visit(item.Expr)
+		traverse(item.Expr, visit)
+	case *Expr:
+		for _, t := range item.Terms {
+			visit(t)
+			traverse(t, visit)
+		}
+	case *Term:
+		for _, f := range item.Factors {
+			visit(f)
+			traverse(f, visit)
+		}
+	case *Factor:
+		if item.Paren != nil {
+			visit(item.Paren)
+			traverse(item.Paren, visit)
+		}
+		if item.Brak != nil {
+			visit(item.Brak)
+			traverse(item.Brak, visit)
+		}
+		if item.Brace != nil {
+			visit(item.Brace)
+			traverse(item.Brace, visit)
+		}
+	}
 }
 
-type readError textError
+// Error has one or more errors.
+type Error struct {
+	Errs []error
+}
 
-func (e readError) Error() string {
-	return fmt.Sprintf("%v:%v: cannot read character", e.line, e.col)
+// Error returns all the error strings joined by a newline.
+func (e Error) Error() string {
+	ss := make([]string, len(e.Errs))
+	for i, err := range e.Errs {
+		ss[i] = err.Error()
+	}
+	return strings.Join(ss, "\n")
+}
+
+// Expr is the right side of a production.
+type Expr struct {
+	Terms []*Term
+}
+
+// Factor is a concrete form that can be sequenced.
+type Factor struct {
+	Ident   string
+	Literal string
+	Paren   *Expr
+	Brak    *Expr
+	Brace   *Expr
+}
+
+// Grammar is an abstract syntax tree for a grammar.
+type Grammar struct {
+	Prods []*Prod
+}
+
+// Parse returns a Grammar for a valid grammar, or an error otherwise.
+func Parse(s string) (*Grammar, error) {
+	p := newParser(bytes.NewBufferString(s))
+	g := p.grammar()
+	var errs []error
+	if len(p.lexer.errs) > 0 {
+		errs = p.lexer.errs
+	}
+	if len(p.errs) > 0 {
+		errs = append(errs, p.errs...)
+	}
+	if len(errs) > 0 {
+		return nil, Error{Errs: errs}
+	}
+	return g, nil
+}
+
+// Validate checks that production identifiers are capitalized and defined.
+func (g *Grammar) Validate() error {
+	var errs []error
+	defined, undefined := map[string]struct{}{}, map[string]struct{}{}
+	for _, p := range g.Prods {
+		if _, ok := defined[p.Ident]; ok {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Ident))
+		}
+		if r, _ := utf8.DecodeRuneInString(p.Ident); !unicode.IsUpper(r) {
+			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Ident))
+		}
+		defined[p.Ident] = struct{}{}
+	}
+	traverse(g, func(item any) {
+		switch item := item.(type) {
+		case *Factor:
+			if len(item.Ident) > 0 {
+				if _, ok := undefined[item.Ident]; ok {
+					return
+				}
+				if r, _ := utf8.DecodeRuneInString(item.Ident); unicode.IsUpper(r) {
+					if _, ok := defined[item.Ident]; !ok {
+						defined[item.Ident] = struct{}{}
+						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Ident))
+					}
+				}
+			}
+		}
+	})
+	if len(errs) > 0 {
+		return Error{Errs: errs}
+	}
+	return nil
+}
+
+// func (g *Grammar) terminals() []string {
+
+// }
+
+// func (g *Grammar) nonTerminals() []string {
+
+// }
+
+// func (g *Grammar) first(ident string) []string {
+
+// }
+
+// func (g *Grammar) follow(ident string) []string {
+
+// }
+
+/*
+Grammar methods:
+list of terminal syms
+list of nonterm syms
+for each nonterm sym, the sets of its start and follow syms
+based on these 3, determine if given syntax can be parsed top down with lookahead of 1 sym
+show conflicting productions if not
+*/
+
+// func DeterministicL1(g *Grammar) bool {
+// A | B: first(A) and first(B) must be disjoint
+// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
+// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
+// No left recursion: A = A...
+// symbol sets: first, follow
+// return false
+// }
+
+// Prod is a production.
+type Prod struct {
+	Ident string
+	Expr  *Expr
+}
+
+// Term is an alternative.
+type Term struct {
+	Factors []*Factor
+}
+
+type expectedRuneError struct {
+	textError
+	expected, actual rune
+}
+
+func (e expectedRuneError) Error() string {
+	return fmt.Sprintf("%v:%v: expected character %q but found character %q", e.line, e.col, e.expected, e.actual)
 }
 
 type expectedTokenError struct {
@@ -156,13 +244,14 @@ func (e expectedTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenName(e.expected, e.text), tokenValue(e.actual, e.text))
 }
 
-type expectedRuneError struct {
-	textError
-	expected, actual rune
+type readError textError
+
+func (e readError) Error() string {
+	return fmt.Sprintf("%v:%v: cannot read character", e.line, e.col)
 }
 
-func (e expectedRuneError) Error() string {
-	return fmt.Sprintf("%v:%v: expected character %q but found character %q", e.line, e.col, e.expected, e.actual)
+type textError struct {
+	line, col int
 }
 
 type unexpectedTokenError struct {
@@ -387,108 +476,19 @@ func (p *parser) factor() *Factor {
 	return &f
 }
 
-// func (g *Grammar) terminals() []token {
+type token int
 
-// }
-
-// func (g *Grammar) nonTerminals() []string {
-
-// }
-
-// func (g *Grammar) first(ident string) []token {
-
-// }
-
-// func (g *Grammar) follow(ident string) []token {
-
-// }
-
-/*
-Grammar methods:
-list of terminal syms
-list of nonterm syms
-for each nonterm sym, the sets of its start and follow syms
-based on these 3, determine if given syntax can be parsed top down with lookahead of 1 sym
-show conflicting productions if not
-*/
-
-// func DeterministicL1(g *Grammar) bool {
-// A | B: first(A) and first(B) must be disjoint
-// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
-// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
-// No left recursion: A = A...
-// symbol sets: first, follow
-// return false
-// }
-
-// Validate checks that production identifiers are capitalized and defined.
-func (g *Grammar) Validate() error {
-	var errs []error
-	defined, undefined := map[string]struct{}{}, map[string]struct{}{}
-	for _, p := range g.Prods {
-		if _, ok := defined[p.Ident]; ok {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Ident))
-		}
-		if r, _ := utf8.DecodeRuneInString(p.Ident); !unicode.IsUpper(r) {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Ident))
-		}
-		defined[p.Ident] = struct{}{}
-	}
-	traverse(g, func(item any) {
-		switch item := item.(type) {
-		case *Factor:
-			if len(item.Ident) > 0 {
-				if _, ok := undefined[item.Ident]; ok {
-					return
-				}
-				if r, _ := utf8.DecodeRuneInString(item.Ident); unicode.IsUpper(r) {
-					if _, ok := defined[item.Ident]; !ok {
-						defined[item.Ident] = struct{}{}
-						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Ident))
-					}
-				}
-			}
-		}
-	})
-	if len(errs) > 0 {
-		return Error{Errs: errs}
-	}
-	return nil
-}
-
-func traverse(item any, visit func(any)) {
-	visit(item)
-	switch item := item.(type) {
-	case *Grammar:
-		for _, p := range item.Prods {
-			visit(p)
-			traverse(p, visit)
-		}
-	case *Prod:
-		visit(item.Expr)
-		traverse(item.Expr, visit)
-	case *Expr:
-		for _, t := range item.Terms {
-			visit(t)
-			traverse(t, visit)
-		}
-	case *Term:
-		for _, f := range item.Factors {
-			visit(f)
-			traverse(f, visit)
-		}
-	case *Factor:
-		if item.Paren != nil {
-			visit(item.Paren)
-			traverse(item.Paren, visit)
-		}
-		if item.Brak != nil {
-			visit(item.Brak)
-			traverse(item.Brak, visit)
-		}
-		if item.Brace != nil {
-			visit(item.Brace)
-			traverse(item.Brace, visit)
-		}
-	}
-}
+const (
+	ident   token = 0
+	literal token = 2
+	lparen  token = 3
+	lbrak   token = 4
+	lbrace  token = 5
+	bar     token = 6
+	eql     token = 7
+	rparen  token = 8
+	rbrak   token = 9
+	rbrace  token = 10
+	period  token = 11
+	other   token = 12
+)
