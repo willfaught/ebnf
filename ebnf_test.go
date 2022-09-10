@@ -89,8 +89,9 @@ func TestParseInvalid(t *testing.T) {
 
 func TestParseValidateValid(t *testing.T) {
 	for _, test := range []string{
-		`S = s.`,
-		`S = X. X = S.`,
+		`S = x.`,
+		`S = A. A = S.`,
+		`S = A. A = B. B = x.`,
 		oberon2,
 	} {
 		t.Log(test)
@@ -109,6 +110,7 @@ func TestParseValidateInvalid(t *testing.T) {
 	for _, test := range []string{
 		`s = s.`,
 		`S = X.`,
+		`S = x. P = x.`,
 	} {
 		t.Log(test)
 		g, err := Parse(test)
@@ -119,5 +121,9 @@ func TestParseValidateInvalid(t *testing.T) {
 		if err := g.Validate(); err == nil {
 			t.Error("no validate error")
 		}
+	}
+	var g Grammar
+	if err := g.Validate(); err == nil {
+		t.Error("no validate error")
 	}
 }

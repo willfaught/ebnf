@@ -6,6 +6,7 @@ package ebnf
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -148,33 +149,42 @@ func Parse(s string) (*Grammar, error) {
 
 // Validate checks that production identifiers are capitalized and defined.
 func (g *Grammar) Validate() error {
+	if len(g.Productions) == 0 {
+		return errors.New("no productions")
+	}
 	var errs []error
-	defined, undefined := map[string]struct{}{}, map[string]struct{}{}
+	used := map[string]bool{}
 	for _, p := range g.Productions {
-		if _, ok := defined[p.Identifier]; ok {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is defined twice", p.Identifier))
+		if _, ok := used[p.Identifier]; ok {
+			errs = append(errs, fmt.Errorf("non-terminal identifier %q is defined twice", p.Identifier))
 		}
 		if r, _ := utf8.DecodeRuneInString(p.Identifier); !unicode.IsUpper(r) {
-			errs = append(errs, fmt.Errorf("non-terminal symbol %q is lowercase", p.Identifier))
+			errs = append(errs, fmt.Errorf("non-terminal identifier %q is lowercase", p.Identifier))
 		}
-		defined[p.Identifier] = struct{}{}
+		used[p.Identifier] = false
 	}
 	traverse(g, func(item any) {
 		switch item := item.(type) {
 		case *Factor:
 			if len(item.Identifier) > 0 {
-				if _, ok := undefined[item.Identifier]; ok {
-					return
-				}
 				if r, _ := utf8.DecodeRuneInString(item.Identifier); unicode.IsUpper(r) {
-					if _, ok := defined[item.Identifier]; !ok {
-						defined[item.Identifier] = struct{}{}
-						errs = append(errs, fmt.Errorf("non-terminal symbol %q is undefined", item.Identifier))
+					b, ok := used[item.Identifier]
+					if !ok {
+						errs = append(errs, fmt.Errorf("non-terminal identifier %q is undefined", item.Identifier))
+						return
+					}
+					if !b {
+						used[item.Identifier] = true
 					}
 				}
 			}
 		}
 	})
+	for ident, b := range used {
+		if ident != g.Productions[0].Identifier && !b {
+			errs = append(errs, fmt.Errorf("non-terminal identifier %q is unused", ident))
+		}
+	}
 	if len(errs) > 0 {
 		return Error{Errors: errs}
 	}
