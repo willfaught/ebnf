@@ -238,10 +238,6 @@ func (g *Grammar) Validate() error {
 				errs = append(errs, errors.New("literal is nil"))
 				return
 			}
-			if len(item.Text) == 0 {
-				errs = append(errs, errors.New("literal is empty"))
-				return
-			}
 		case *Production:
 			if item == nil {
 				errs = append(errs, errors.New("production is nil"))
