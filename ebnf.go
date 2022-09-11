@@ -65,30 +65,28 @@ func tokenValue(t token, text string) string {
 }
 
 func traverse(item any, visit func(any)) {
+	if item == nil {
+		return
+	}
 	visit(item)
 	switch item := item.(type) {
-	case *Grammar:
-		for _, p := range item.Productions {
-			visit(p)
-			traverse(p, visit)
-		}
-	case *Production:
-		visit(item.Expression)
-		traverse(item.Expression, visit)
 	case *Expression:
 		for _, t := range item.Terms {
 			visit(t)
 			traverse(t, visit)
 		}
-	case *Term:
-		for _, f := range item.Factors {
-			visit(f)
-			traverse(f, visit)
-		}
 	case *Factor:
 		if item.Group != nil {
 			visit(item.Group)
 			traverse(item.Group, visit)
+		}
+		if item.Identifier != nil {
+			visit(item.Identifier)
+			traverse(item.Identifier, visit)
+		}
+		if item.Literal != nil {
+			visit(item.Literal)
+			traverse(item.Literal, visit)
 		}
 		if item.Option != nil {
 			visit(item.Option)
@@ -97,6 +95,22 @@ func traverse(item any, visit func(any)) {
 		if item.Repetition != nil {
 			visit(item.Repetition)
 			traverse(item.Repetition, visit)
+		}
+	case *Grammar:
+		for _, p := range item.Productions {
+			visit(p)
+			traverse(p, visit)
+		}
+	case *Identifier:
+	case *Literal:
+	case *Production:
+		// item.Identifier is not visited or traversed for validation reasons.
+		visit(item.Expression)
+		traverse(item.Expression, visit)
+	case *Term:
+		for _, f := range item.Factors {
+			visit(f)
+			traverse(f, visit)
 		}
 	}
 }
@@ -123,8 +137,8 @@ type Expression struct {
 // Factor is a concrete form that can be sequenced.
 type Factor struct {
 	Group      *Expression
-	Identifier string
-	Literal    string
+	Identifier *Identifier
+	Literal    *Literal
 	Option     *Expression
 	Repetition *Expression
 }
@@ -153,40 +167,117 @@ func Parse(s string) (*Grammar, error) {
 
 // Validate checks that production identifiers are capitalized and defined.
 func (g *Grammar) Validate() error {
-	if len(g.Productions) == 0 {
-		return errors.New("no productions")
-	}
 	var errs []error
 	used := map[string]bool{}
-	for _, p := range g.Productions {
-		if _, ok := used[p.Identifier]; ok {
-			errs = append(errs, fmt.Errorf("non-terminal identifier %q is defined twice", p.Identifier))
-		}
-		if r, _ := utf8.DecodeRuneInString(p.Identifier); !unicode.IsUpper(r) {
-			errs = append(errs, fmt.Errorf("non-terminal identifier %q is lowercase", p.Identifier))
-		}
-		used[p.Identifier] = false
-	}
 	traverse(g, func(item any) {
 		switch item := item.(type) {
+		case *Expression:
+			if item == nil {
+				errs = append(errs, errors.New("expression is nil"))
+				return
+			}
+			if len(item.Terms) == 0 {
+				errs = append(errs, errors.New("expression is empty"))
+				return
+			}
 		case *Factor:
-			if len(item.Identifier) > 0 {
-				if r, _ := utf8.DecodeRuneInString(item.Identifier); unicode.IsUpper(r) {
-					b, ok := used[item.Identifier]
-					if !ok {
-						errs = append(errs, fmt.Errorf("non-terminal identifier %q is undefined", item.Identifier))
-						return
-					}
-					if !b {
-						used[item.Identifier] = true
+			if item == nil {
+				errs = append(errs, errors.New("factor is nil"))
+				return
+			}
+			if *item == (Factor{}) {
+				errs = append(errs, errors.New("factor is empty"))
+				return
+			}
+		case *Grammar:
+			if item == nil {
+				errs = append(errs, errors.New("grammar is nil"))
+				return
+			}
+			if len(item.Productions) == 0 {
+				errs = append(errs, errors.New("grammar is empty"))
+				return
+			}
+			for _, p := range item.Productions {
+				if p.Identifier != nil && len(p.Identifier.Text) > 0 {
+					if r, _ := utf8.DecodeRuneInString(p.Identifier.Text); unicode.IsUpper(r) {
+						if _, ok := used[p.Identifier.Text]; ok {
+							errs = append(errs, fmt.Errorf("identifier %q is defined twice", p.Identifier.Text))
+							continue
+						}
+						used[p.Identifier.Text] = false
 					}
 				}
+			}
+		case *Identifier:
+			if item == nil {
+				errs = append(errs, errors.New("identifier is nil"))
+				return
+			}
+			if len(item.Text) == 0 {
+				errs = append(errs, errors.New("identifier is empty"))
+				return
+			}
+			r, n := utf8.DecodeRuneInString(item.Text)
+			if r == utf8.RuneError || n == 0 {
+				errs = append(errs, errors.New("identifier is invalid"))
+				return
+			}
+			if unicode.IsUpper(r) {
+				b, ok := used[item.Text]
+				if !ok {
+					errs = append(errs, fmt.Errorf("identifier %q is undefined", item.Text))
+					return
+				}
+				if !b {
+					used[item.Text] = true
+				}
+			}
+		case *Literal:
+			if item == nil {
+				errs = append(errs, errors.New("literal is nil"))
+				return
+			}
+			if len(item.Text) == 0 {
+				errs = append(errs, errors.New("literal is empty"))
+				return
+			}
+		case *Production:
+			if item == nil {
+				errs = append(errs, errors.New("production is nil"))
+				return
+			}
+			if item.Identifier == nil {
+				errs = append(errs, errors.New("identifier is nil"))
+				return
+			}
+			if len(item.Identifier.Text) == 0 {
+				errs = append(errs, errors.New("identifier is empty"))
+				return
+			}
+			r, n := utf8.DecodeRuneInString(item.Identifier.Text)
+			if r == utf8.RuneError || n == 0 {
+				errs = append(errs, errors.New("identifier is invalid"))
+				return
+			}
+			if !unicode.IsUpper(r) {
+				errs = append(errs, fmt.Errorf("identifier %q starts with a lowercase character", item.Identifier.Text))
+				return
+			}
+		case *Term:
+			if item == nil {
+				errs = append(errs, errors.New("term is nil"))
+				return
+			}
+			if len(item.Factors) == 0 {
+				errs = append(errs, errors.New("term is empty"))
+				return
 			}
 		}
 	})
 	for ident, b := range used {
-		if ident != g.Productions[0].Identifier && !b {
-			errs = append(errs, fmt.Errorf("non-terminal identifier %q is unused", ident))
+		if ident != g.Productions[0].Identifier.Text && !b {
+			errs = append(errs, fmt.Errorf("identifier %q is unused", ident))
 		}
 	}
 	if len(errs) > 0 {
@@ -196,19 +287,15 @@ func (g *Grammar) Validate() error {
 }
 
 // func (g *Grammar) terminals() []string {
-
 // }
 
 // func (g *Grammar) nonTerminals() []string {
-
 // }
 
-// func (g *Grammar) first(ident string) []string {
-
+// func firstTerminals(item any, first map[string]struct{}) {
 // }
 
-// func (g *Grammar) follow(ident string) []string {
-
+// func (g *Grammar) followTerminals(ident string) []string {
 // }
 
 /*
@@ -229,9 +316,19 @@ show conflicting productions if not
 // return false
 // }
 
+// Identifier is a terminal or non-terminal identifier.
+type Identifier struct {
+	Text string
+}
+
+// Literal is the content of a quoted string.
+type Literal struct {
+	Text string
+}
+
 // Production is a production.
 type Production struct {
-	Identifier string
+	Identifier *Identifier
 	Expression *Expression
 }
 
@@ -435,7 +532,7 @@ func (p *parser) grammar() *Grammar {
 }
 
 func (p *parser) prod() *Production {
-	prod := &Production{Identifier: p.text}
+	prod := &Production{Identifier: &Identifier{Text: p.text}}
 	p.nextToken()
 	p.expect(eql)
 	prod.Expression = p.expr()
@@ -464,10 +561,10 @@ func (p *parser) factor() *Factor {
 	var f Factor
 	switch p.token {
 	case ident:
-		f.Identifier = p.text
+		f.Identifier = &Identifier{Text: p.text}
 		p.nextToken()
 	case literal:
-		f.Literal = p.text
+		f.Literal = &Literal{Text: p.text}
 		p.nextToken()
 	case lparen:
 		p.nextToken()
