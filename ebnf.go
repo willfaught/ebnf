@@ -3,10 +3,29 @@
 // Non-terminal identifiers must begin with an uppercase letter.
 // The first production defines the start non-terminal identifier.
 // Terminal identifiers are assumed to be defined elsewhere.
+// Epsilon is represented by an empty literal.
 //
 // [Extended Backus-Naur Form]: https://en.wikipedia.org/wiki/Extended_Backus–Naur_form
 // [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
 package ebnf
+
+/*
+Grammar methods:
+list of terminal syms
+list of nonterm syms
+for each nonterm sym, the sets of its start and follow syms
+based on these 3, determine if given syntax can be parsed top down with lookahead of 1 sym
+show conflicting productions if not
+*/
+
+// func DeterministicL1(g *Grammar) bool {
+// A | B: first(A) and first(B) must be disjoint
+// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
+// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
+// No left recursion: A = A...
+// symbol sets: first, follow
+// return false
+// }
 
 import (
 	"bytes"
@@ -28,6 +47,77 @@ var tokenString = map[token]string{
 	rbrak:  "]",
 	rbrace: "}",
 	period: ".",
+}
+
+func first(item any) map[any]struct{} {
+	terminals := map[any]struct{}{}
+	switch item := item.(type) {
+	case nil:
+	case *Expression:
+		if item == nil {
+			break
+		}
+		for _, t := range item.Terms {
+			merge(first(t), terminals)
+		}
+	case *Factor:
+		if item == nil {
+			break
+		}
+		merge(first(item.Group), terminals)
+		merge(first(item.Identifier), terminals)
+		merge(first(item.Literal), terminals)
+		merge(first(item.Option), terminals)
+		merge(first(item.Repetition), terminals)
+		if item.Option != nil || item.Repetition != nil {
+			terminals[Literal{}] = struct{}{}
+		}
+	case *Identifier:
+		if item == nil {
+			break
+		}
+		terminals[*item] = struct{}{}
+	case *Literal:
+		if item == nil {
+			break
+		}
+		terminals[*item] = struct{}{}
+	case *Production:
+		if item == nil {
+			break
+		}
+		merge(first(item.Expression), terminals)
+	case *Term:
+		if item == nil {
+			break
+		}
+		merge(firstFactors(item.Factors), terminals)
+	}
+	return terminals
+}
+
+func firstFactors(fs []*Factor) map[any]struct{} {
+	terminals := first(fs[0])
+	if len(fs) == 1 {
+		return terminals
+	}
+	if _, ok := terminals[Literal{}]; !ok {
+		return terminals
+	}
+	delete(terminals, Literal{})
+	merge(firstFactors(fs[1:]), terminals)
+	return terminals
+}
+
+func merge(from, to map[any]struct{}) {
+	for k, v := range from {
+		to[k] = v
+	}
+}
+
+func terminal(i *Identifier) bool {
+	r, _ := utf8.DecodeRuneInString(i.Text)
+	return unicode.IsLower(r)
 }
 
 func tokenName(t token, text string) string {
@@ -165,6 +255,36 @@ func Parse(s string) (*Grammar, error) {
 	return g, nil
 }
 
+// First returns the first terminals of a valid grammar.
+func (g *Grammar) First() map[string]map[any]struct{} {
+	terminals := map[string]map[any]struct{}{}
+	for _, p := range g.Productions {
+		f := first(p)
+		delete(f, *p.Identifier)
+		terminals[p.Identifier.Text] = f
+	}
+	for {
+		var merged bool
+		for _, ts := range terminals {
+			for t := range ts {
+				if t, ok := t.(Identifier); ok && !terminal(&t) {
+					merge(terminals[t.Text], ts)
+					delete(ts, t)
+					merged = true
+				}
+			}
+		}
+		if !merged {
+			break
+		}
+	}
+	return terminals
+}
+
+// func (g *Grammar) Follow() map[any]map[any]struct{} {
+// 	return nil
+// }
+
 // Validate checks that production identifiers are capitalized and defined.
 func (g *Grammar) Validate() error {
 	var errs []error
@@ -199,14 +319,12 @@ func (g *Grammar) Validate() error {
 				return
 			}
 			for _, p := range item.Productions {
-				if p.Identifier != nil && len(p.Identifier.Text) > 0 {
-					if r, _ := utf8.DecodeRuneInString(p.Identifier.Text); unicode.IsUpper(r) {
-						if _, ok := used[p.Identifier.Text]; ok {
-							errs = append(errs, fmt.Errorf("identifier %q is defined twice", p.Identifier.Text))
-							continue
-						}
-						used[p.Identifier.Text] = false
+				if p.Identifier != nil && len(p.Identifier.Text) > 0 && !terminal(p.Identifier) {
+					if _, ok := used[p.Identifier.Text]; ok {
+						errs = append(errs, fmt.Errorf("identifier %q is defined twice", p.Identifier.Text))
+						continue
 					}
+					used[p.Identifier.Text] = false
 				}
 			}
 		case *Identifier:
@@ -218,12 +336,7 @@ func (g *Grammar) Validate() error {
 				errs = append(errs, errors.New("identifier is empty"))
 				return
 			}
-			r, n := utf8.DecodeRuneInString(item.Text)
-			if r == utf8.RuneError || n == 0 {
-				errs = append(errs, errors.New("identifier is invalid"))
-				return
-			}
-			if unicode.IsUpper(r) {
+			if !terminal(item) {
 				b, ok := used[item.Text]
 				if !ok {
 					errs = append(errs, fmt.Errorf("identifier %q is undefined", item.Text))
@@ -251,12 +364,7 @@ func (g *Grammar) Validate() error {
 				errs = append(errs, errors.New("identifier is empty"))
 				return
 			}
-			r, n := utf8.DecodeRuneInString(item.Identifier.Text)
-			if r == utf8.RuneError || n == 0 {
-				errs = append(errs, errors.New("identifier is invalid"))
-				return
-			}
-			if !unicode.IsUpper(r) {
+			if terminal(item.Identifier) {
 				errs = append(errs, fmt.Errorf("identifier %q starts with a lowercase character", item.Identifier.Text))
 				return
 			}
@@ -281,36 +389,6 @@ func (g *Grammar) Validate() error {
 	}
 	return nil
 }
-
-// func (g *Grammar) terminals() []string {
-// }
-
-// func (g *Grammar) nonTerminals() []string {
-// }
-
-// func firstTerminals(item any, first map[string]struct{}) {
-// }
-
-// func (g *Grammar) followTerminals(ident string) []string {
-// }
-
-/*
-Grammar methods:
-list of terminal syms
-list of nonterm syms
-for each nonterm sym, the sets of its start and follow syms
-based on these 3, determine if given syntax can be parsed top down with lookahead of 1 sym
-show conflicting productions if not
-*/
-
-// func DeterministicL1(g *Grammar) bool {
-// A | B: first(A) and first(B) must be disjoint
-// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
-// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
-// No left recursion: A = A...
-// symbol sets: first, follow
-// return false
-// }
 
 // Identifier is a terminal or non-terminal identifier.
 type Identifier struct {

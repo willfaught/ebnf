@@ -1,6 +1,10 @@
 package ebnf
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+)
 
 const oberon2 = `
 Module        = "MODULE" ident ";" [ImportList] DeclSeq ["BEGIN" StatementSeq] "END" ident ".".
@@ -125,5 +129,42 @@ func TestParseValidateInvalid(t *testing.T) {
 	var g Grammar
 	if err := g.Validate(); err == nil {
 		t.Error("no validate error")
+	}
+}
+
+func TestGrammarFirst(t *testing.T) {
+	for _, test := range []struct {
+		grammar string
+		first   map[string]map[any]struct{}
+	}{
+		{
+			`S = x.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{Text: "x"}: {}},
+			},
+		},
+		{
+			`S = A | B. A = B | C. B = A | C. C = x.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{Text: "x"}: {}},
+				"A": {Identifier{Text: "x"}: {}},
+				"B": {Identifier{Text: "x"}: {}},
+				"C": {Identifier{Text: "x"}: {}},
+			},
+		},
+	} {
+		t.Log("grammar:", test.grammar)
+		g, err := Parse(test.grammar)
+		if err != nil {
+			t.Error("parse error:", err)
+			continue
+		}
+		if err := g.Validate(); err != nil {
+			t.Error("validate error:", err)
+			continue
+		}
+		if a, e := g.First(), test.first; !cmp.Equal(a, e) {
+			t.Error("wrong first set:", cmp.Diff(a, e))
+		}
 	}
 }
