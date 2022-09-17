@@ -49,8 +49,78 @@ var tokenString = map[token]string{
 	period: ".",
 }
 
-func first(item any) map[any]struct{} {
-	terminals := map[any]struct{}{}
+func first(all map[any]map[any]struct{}, item any) map[any]struct{} {
+	var this map[any]struct{}
+	switch item := item.(type) {
+	case nil:
+	case *Expression:
+		if item == nil {
+			break
+		}
+		this = map[any]struct{}{}
+		for _, t := range item.Terms {
+			merge(first(all, t), this)
+		}
+		all[item] = this
+	case *Factor:
+		if item == nil {
+			break
+		}
+		this = map[any]struct{}{}
+		merge(first(all, item.Group), this)
+		merge(first(all, item.Identifier), this)
+		merge(first(all, item.Literal), this)
+		merge(first(all, item.Option), this)
+		merge(first(all, item.Repetition), this)
+		if item.Option != nil || item.Repetition != nil {
+			this[Literal{}] = struct{}{}
+		}
+		all[item] = this
+	case *Identifier:
+		if item == nil {
+			break
+		}
+		this = map[any]struct{}{*item: {}}
+		all[*item] = this
+	case *Literal:
+		if item == nil {
+			break
+		}
+		this = map[any]struct{}{*item: {}}
+		all[*item] = this
+	case *Production:
+		if item == nil {
+			break
+		}
+		this = first(all, item.Expression)
+		all[item] = this
+	case *Term:
+		if item == nil {
+			break
+		}
+		for _, f := range item.Factors {
+			first(all, f)
+		}
+		this = firstFactors(all, item.Factors)
+		all[item] = this
+	}
+	return this
+}
+
+func firstFactors(all map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
+	this := all[fs[0]]
+	if len(fs) == 1 {
+		return this
+	}
+	if _, ok := this[Literal{}]; !ok {
+		return this
+	}
+	delete(this, Literal{})
+	merge(firstFactors(all, fs[1:]), this)
+	return this
+}
+
+func follow(first map[any]map[any]struct{}, all map[string]map[any]struct{}, p *Production, item any) {
 	switch item := item.(type) {
 	case nil:
 	case *Expression:
@@ -58,55 +128,69 @@ func first(item any) map[any]struct{} {
 			break
 		}
 		for _, t := range item.Terms {
-			merge(first(t), terminals)
+			follow(first, all, p, t)
 		}
 	case *Factor:
 		if item == nil {
 			break
 		}
-		merge(first(item.Group), terminals)
-		merge(first(item.Identifier), terminals)
-		merge(first(item.Literal), terminals)
-		merge(first(item.Option), terminals)
-		merge(first(item.Repetition), terminals)
-		if item.Option != nil || item.Repetition != nil {
-			terminals[Literal{}] = struct{}{}
-		}
+		follow(first, all, p, item.Group)
+		follow(first, all, p, item.Identifier)
+		follow(first, all, p, item.Literal)
+		follow(first, all, p, item.Option)
+		follow(first, all, p, item.Repetition)
 	case *Identifier:
-		if item == nil {
-			break
-		}
-		terminals[*item] = struct{}{}
 	case *Literal:
-		if item == nil {
-			break
-		}
-		terminals[*item] = struct{}{}
 	case *Production:
 		if item == nil {
 			break
 		}
-		merge(first(item.Expression), terminals)
+		if all[item.Identifier.Text] == nil {
+			all[item.Identifier.Text] = map[any]struct{}{}
+		}
+		follow(first, all, item, item.Expression)
 	case *Term:
 		if item == nil {
 			break
 		}
-		merge(firstFactors(item.Factors), terminals)
+		for i, f := range item.Factors {
+			if f.Identifier == nil || terminal(f.Identifier) {
+				continue
+			}
+			this := all[f.Identifier.Text]
+			if this == nil {
+				this = map[any]struct{}{}
+				all[f.Identifier.Text] = this
+			}
+			if i == len(item.Factors)-1 {
+				merge(map[any]struct{}{*p.Identifier: {}}, this)
+			} else {
+				rest := firstFactorsCopy(first, item.Factors[i+1:])
+				if _, ok := rest[Literal{}]; ok {
+					delete(rest, Literal{})
+					rest[*p.Identifier] = struct{}{}
+				}
+				merge(rest, this)
+			}
+		}
 	}
-	return terminals
 }
 
-func firstFactors(fs []*Factor) map[any]struct{} {
-	terminals := first(fs[0])
+func firstFactorsCopy(first map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
+	this := first[fs[0]]
 	if len(fs) == 1 {
-		return terminals
+		return this
 	}
-	if _, ok := terminals[Literal{}]; !ok {
-		return terminals
+	if _, ok := this[Literal{}]; !ok {
+		return this
 	}
-	delete(terminals, Literal{})
-	merge(firstFactors(fs[1:]), terminals)
-	return terminals
+	copy := make(map[any]struct{}, len(this))
+	for k, v := range this {
+		copy[k] = v
+	}
+	delete(this, Literal{})
+	merge(firstFactorsCopy(first, fs[1:]), copy)
+	return copy
 }
 
 func merge(from, to map[any]struct{}) {
@@ -256,20 +340,20 @@ func Parse(s string) (*Grammar, error) {
 }
 
 // First returns the first terminals of a valid grammar.
-func (g *Grammar) First() map[string]map[any]struct{} {
-	terminals := map[string]map[any]struct{}{}
+func (g *Grammar) First() map[any]map[any]struct{} {
+	all := map[any]map[any]struct{}{}
 	for _, p := range g.Productions {
-		f := first(p)
-		delete(f, *p.Identifier)
-		terminals[p.Identifier.Text] = f
+		this := first(all, p)
+		delete(this, *p.Identifier)
+		all[*p.Identifier] = this
 	}
 	for {
 		var merged bool
-		for _, ts := range terminals {
-			for t := range ts {
-				if t, ok := t.(Identifier); ok && !terminal(&t) {
-					merge(terminals[t.Text], ts)
-					delete(ts, t)
+		for _, terminals := range all {
+			for t := range terminals {
+				if i, ok := t.(Identifier); ok && !terminal(&i) {
+					merge(all[i], terminals)
+					delete(terminals, i)
 					merged = true
 				}
 			}
@@ -278,12 +362,46 @@ func (g *Grammar) First() map[string]map[any]struct{} {
 			break
 		}
 	}
-	return terminals
+	return all
 }
 
-// func (g *Grammar) Follow() map[any]map[any]struct{} {
-// 	return nil
-// }
+// FirstNonterminals returns the first terminals of a valid grammar for its non-terminals.
+func (g *Grammar) FirstNonterminals() map[string]map[any]struct{} {
+	first := map[string]map[any]struct{}{}
+	for k, v := range g.First() {
+		if p, ok := k.(*Production); ok {
+			first[p.Identifier.Text] = v
+		}
+	}
+	return first
+}
+
+// Follow returns the follow terminals of a valid grammar.
+func (g *Grammar) Follow() map[string]map[any]struct{} {
+	first := g.First()
+	all := map[string]map[any]struct{}{}
+	for _, p := range g.Productions {
+		follow(first, all, nil, p)
+		delete(all[p.Identifier.Text], *p.Identifier)
+	}
+	for {
+		var merged bool
+		for _, terminals := range all {
+			for t := range terminals {
+				if i, ok := t.(Identifier); ok && !terminal(&i) {
+					existing := all[i.Text]
+					merge(existing, terminals)
+					delete(terminals, t)
+					merged = true
+				}
+			}
+		}
+		if !merged {
+			break
+		}
+	}
+	return all
+}
 
 // Validate checks that production identifiers are capitalized and defined.
 func (g *Grammar) Validate() error {

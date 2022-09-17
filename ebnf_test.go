@@ -57,6 +57,7 @@ Qualident     = [ident "."] ident.
 IdentDef      = ident ["*" | "-"].`
 
 func TestParseValid(t *testing.T) {
+	t.Parallel()
 	for _, test := range []string{
 		`S = S .`,
 		`S = "S" .`,
@@ -74,6 +75,7 @@ func TestParseValid(t *testing.T) {
 }
 
 func TestParseInvalid(t *testing.T) {
+	t.Parallel()
 	for _, test := range []string{
 		``,
 		`S`,
@@ -92,6 +94,7 @@ func TestParseInvalid(t *testing.T) {
 }
 
 func TestParseValidateValid(t *testing.T) {
+	t.Parallel()
 	for _, test := range []string{
 		`S = x.`,
 		`S = A. A = S.`,
@@ -111,6 +114,7 @@ func TestParseValidateValid(t *testing.T) {
 }
 
 func TestParseValidateInvalid(t *testing.T) {
+	t.Parallel()
 	for _, test := range []string{
 		`s = s.`,
 		`S = X.`,
@@ -132,24 +136,167 @@ func TestParseValidateInvalid(t *testing.T) {
 	}
 }
 
-func TestGrammarFirst(t *testing.T) {
+func TestGrammarFirstNonterminals(t *testing.T) {
+	t.Parallel()
 	for _, test := range []struct {
 		grammar string
 		first   map[string]map[any]struct{}
 	}{
 		{
-			`S = x.`,
+			`S = a.`,
 			map[string]map[any]struct{}{
-				"S": {Identifier{Text: "x"}: {}},
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = "a".`,
+			map[string]map[any]struct{}{
+				"S": {Literal{"a"}: {}},
+			},
+		},
+		{
+			`S = (a).`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = [a].`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = {a}.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = a a.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = a b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = a | a.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = a | b.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+				},
+			},
+		},
+		{
+			`S = (a b).`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = (a | b).`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+				},
+			},
+		},
+		{
+			`S = [a b].`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = [a | b].`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = {a b}.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = {a | b}.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+					Literal{}:       {},
+				},
+			},
+		},
+		{
+			`S = {[(a b) (c d)] [(e f) (g h)]} {[(i j) (k l)] [(m n) (o p)]} | {[(q r) (s t)] [(u v) (w x)]} {[(y z) (aa bb)] [(cc dd) (ee ff)]}.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}:  {},
+					Identifier{"e"}:  {},
+					Identifier{"i"}:  {},
+					Identifier{"m"}:  {},
+					Identifier{"q"}:  {},
+					Identifier{"u"}:  {},
+					Identifier{"y"}:  {},
+					Identifier{"cc"}: {},
+					Literal{}:        {},
+				},
+			},
+		},
+		{
+			`S = a A. A = b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+				"A": {Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = A B C. A = a. B = "". C = b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+				"A": {Identifier{"a"}: {}},
+				"B": {Literal{}: {}},
+				"C": {Identifier{"b"}: {}},
 			},
 		},
 		{
 			`S = A | B. A = B | C. B = A | C. C = x.`,
 			map[string]map[any]struct{}{
-				"S": {Identifier{Text: "x"}: {}},
-				"A": {Identifier{Text: "x"}: {}},
-				"B": {Identifier{Text: "x"}: {}},
-				"C": {Identifier{Text: "x"}: {}},
+				"S": {Identifier{"x"}: {}},
+				"A": {Identifier{"x"}: {}},
+				"B": {Identifier{"x"}: {}},
+				"C": {Identifier{"x"}: {}},
 			},
 		},
 	} {
@@ -163,8 +310,171 @@ func TestGrammarFirst(t *testing.T) {
 			t.Error("validate error:", err)
 			continue
 		}
-		if a, e := g.First(), test.first; !cmp.Equal(a, e) {
-			t.Error("wrong first set:", cmp.Diff(a, e))
+		if a, e := g.FirstNonterminals(), test.first; !cmp.Equal(a, e) {
+			t.Error("wrong first set:\n", cmp.Diff(a, e))
+		}
+	}
+}
+
+func TestGrammarFollow(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		grammar string
+		follow  map[string]map[any]struct{}
+	}{
+		{
+			`S = a.`,
+			map[string]map[any]struct{}{
+				"S": {},
+			},
+		},
+		{
+			`S = a S.`,
+			map[string]map[any]struct{}{
+				"S": {},
+			},
+		},
+		{
+			`S = S a.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = S a b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = c S a b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = S a | S b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}, Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = S a S b.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}, Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = S a A b. A = c.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"a"}: {}},
+				"A": {Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = A. A = a.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {},
+			},
+		},
+		{
+			`S = A. A = B. B = a.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {},
+				"B": {},
+			},
+		},
+		{
+			`S = A a. A = b.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = A a. A = B b. B = c.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+				"B": {Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = A a. A = B. B = c.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+				"B": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = A "" a. A = b.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = A B a. A = b. B = "".`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+				"B": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = A B C. A = a. B = "". C = b.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"b"}: {}},
+				"B": {Identifier{"b"}: {}},
+				"C": {},
+			},
+		},
+		{
+			`S = A B C. A = a. B = "". C = b.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"b"}: {}},
+				"B": {Identifier{"b"}: {}},
+				"C": {},
+			},
+		},
+		{
+			`S = A A. A = B. B = a.`,
+			map[string]map[any]struct{}{
+				"S": {},
+				"A": {Identifier{"a"}: {}},
+				"B": {Identifier{"a"}: {}},
+			},
+		},
+		{
+			`S = S a | A. A = A b.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+				},
+				"A": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+				},
+			},
+		},
+	} {
+		t.Log("grammar:", test.grammar)
+		g, err := Parse(test.grammar)
+		if err != nil {
+			t.Error("parse error:", err)
+			continue
+		}
+		if err := g.Validate(); err != nil {
+			t.Error("validate error:", err)
+			continue
+		}
+		if a, e := g.Follow(), test.follow; !cmp.Equal(a, e) {
+			t.Error("wrong follow set:\n", cmp.Diff(a, e))
 		}
 	}
 }
