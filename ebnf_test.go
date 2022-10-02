@@ -6,8 +6,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-const oberon2 = `
-Module        = "MODULE" ident ";" [ImportList] DeclSeq ["BEGIN" StatementSeq] "END" ident ".".
+const oberon2 = `Module        = "MODULE" ident ";" [ImportList] DeclSeq ["BEGIN" StatementSeq] "END" ident ".".
 ImportList    = "IMPORT" [ident ":="] ident {"," [ident ":="] ident} ";".
 DeclSeq       = { "CONST" {ConstDecl ";" } | "TYPE" {TypeDecl ";"} | "VAR" {VarDecl ";"}} {ProcDecl ";" | ForwardDecl ";"}.
 ConstDecl     = IdentDef "=" ConstExpr.
@@ -56,12 +55,189 @@ IdentList     = IdentDef {"," IdentDef}.
 Qualident     = [ident "."] ident.
 IdentDef      = ident ["*" | "-"].`
 
-const textbook = `
-EA = TA EB.
+const textbook = `EA = TA EB.
 EB = "+" TA EB | "".
 TA = F TB.
 TB = "*" F TB | "".
 F = id | "(" EA ")".`
+
+const modula2 = `CompilationModule = ProgramModule | DefinitionModule | ImplementationModule.
+ActualParameter = VariableDesignator | Expression | TypeParameter.
+ActualParameterList = ActualParameter {"," ActualParameter}.
+ActualParameters = "(" [ActualParameterList] ")".
+ArrayConstructedValue = "{" RepeatedStructureComponent {"," RepeatedStructureComponent} "}".
+ArrayConstructor = ArrayTypeIdentifier ArrayConstructedValue.
+ArrayType = "ARRAY" IndexType {"," IndexType} "OF" ComponentType.
+ArrayTypeIdentifier = TypeIdentifier.
+ArrayValue = ValueDesignator.
+ArrayVariableDesignator = VariableDesignator.
+AssignmentStatement = VariableDesignator ":=" Expression.
+BaseType = OrdinalTypeDenoter.
+BlockBody = NormalPart ["EXCEPT" ExceptionalPart].
+BooleanExpression = Expression.
+BoundType = TypeDenoter.
+CaseAlternative = [CaseLabelList ":" StatementSequence].
+CaseElsePart = "ELSE" StatementSequence.
+CaseLabel = ConstantExpression ["..." ConstantExpression].
+CaseLabelList = CaseLabel {"," CaseLabel}.
+CaseList = CaseAlternative {"|" CaseAlternative} [CaseElsePart].
+CaseSelector = OrdinalExpression.
+CaseStatement = "CASE" CaseSelector "OF" CaseList "END".
+ComponentType = TypeDenoter.
+ConstantDeclaration = identifier "=" ConstantExpression.
+ConstantExpression = Expression.
+ConstantLiteral = wholeNumberLiteral | realLiteral | stringLiteral.
+ControlVariableIdentifier = identifier.
+Declaration = "CONST" {ConstantDeclaration ";"}  | "TYPE" {TypeDeclaration ";"}  | "VAR" {VariableDeclaration ";"}  | ProcedureDeclaration ";"  | LocalModuleDeclaration ";".
+Declarations = {Declaration}.
+Definition = "CONST" {ConstantDeclaration ";"} | "TYPE" {TypeDefinition ";"} | "VAR" {VariableDeclaration ";"} | ProcedureHeading ";".
+DefinitionModule = "DEFINITION" "MODULE" ModuleIdentifier ";" ImportLists Definitions "END" ModuleIdentifier ".".
+Definitions = {Definition}.
+DereferencedDesignator = PointerVariableDesignator "^".
+DereferencedValue = PointerValue "^".
+EmptyStatement = "".
+EntireDesignator = QualifiedIdentifier.
+EntireValue = QualifiedIdentifier.
+EnumerationType = "(" IdentifierList ")".
+ExceptionalPart = StatementSequence.
+ExitStatement = "EXIT".
+ExportList = UnqualifiedExport | QualifiedExport.
+Expression = SimpleExpression [RelationalOperator SimpleExpression].
+Factor = "(" Expression ")" | "NOT" Factor | ValueDesignator | FunctionCall | ValueConstructor | ConstantLiteral.
+FactorOperator = "*" | setIntersectionOperator | "/" | symmetricSetDifferenceOperator | remOperator | "DIV" | "MOD" | "AND".
+FieldIdentifier = identifier.
+FieldList = Fields {";" Fields}.
+Fields = [FixedFields | VariantFields].
+FieldType = TypeDenoter.
+FinalizationBody = "FINALLY" BlockBody.
+FinalValue = OrdinalExpression.
+FixedFields = IdentifierList ":" FieldType.
+FormalParameter = ValueParameterSpecification | VariableParameterSpecification.
+FormalParameterList = FormalParameter {";" FormalParameter}.
+FormalParameters = "(" [FormalParameterList] ")".
+FormalParameterType = VariableFormalType | ValueFormalType.
+FormalParameterTypeList = FormalParameterType {"," FormalParameterType}.
+FormalType = TypeIdentifier | OpenArrayFormalType.
+ForStatement = "FOR" ControlVariableIdentifier ":=" InitialValue "TO" FinalValue ["BY" StepSize] "DO" StatementSequence "END".
+FunctionBody = "BEGIN" BlockBody.
+FunctionCall = FunctionDesignator ActualParameters.
+FunctionDesignator = ValueDesignator.
+FunctionProcedureBlock = Declarations FunctionBody "END".
+FunctionProcedureDeclaration = FunctionProcedureHeading ";" (FunctionProcedureBlock ProcedureIdentifier | "FORWARD").
+FunctionProcedureHeading = "PROCEDURE" ProcedureIdentifier FormalParameters ":" FunctionResultType.
+FunctionProcedureType = "PROCEDURE" "(" [FormalParameterTypeList] ")"  ":" FunctionResultType.
+FunctionResultType = TypeIdentifier.
+FunctionReturnStatement = "RETURN" Expression.
+GuardedStatements = "IF" BooleanExpression "THEN" StatementSequence {"ELSIF" BooleanExpression "THEN" StatementSequence}.
+IdentifierList = identifier {"," identifier}.
+IfElsePart = "ELSE" StatementSequence.
+IfStatement = GuardedStatements [IfElsePart] "END".
+ImplementationModule = "IMPLEMENTATION" "MODULE" ModuleIdentifier [InterruptProtection] ";" ImportLists ModuleBlock ModuleIdentifier ".".
+ImportList = SimpleImport | UnqualifiedImport.
+ImportLists = {ImportList}.
+IndexedDesignator = ArrayVariableDesignator "[" IndexExpression {"," IndexExpression} "]".
+IndexedValue = ArrayValue "[" IndexExpression {"," IndexExpression} "]".
+IndexExpression = OrdinalExpression.
+IndexType = OrdinalTypeDenoter.
+InitializationBody = "BEGIN" BlockBody.
+InitialValue = OrdinalExpression.
+InterruptProtection = "[" ProtectionExpression "]".
+Interval = OrdinalExpression "..." OrdinalExpression.
+LocalModuleDeclaration = "MODULE" ModuleIdentifier [InterruptProtection] ";" ImportLists [ExportList] ModuleBlock ModuleIdentifier.
+LoopStatement = "LOOP" StatementSequence "END".
+MachineAddress = "[" ValueOfAddressType "]".
+Member = Interval |  Singleton.
+ModuleBlock = Declarations [ModuleBody] "END".
+ModuleBody = InitializationBody [FinalizationBody].
+ModuleIdentifier = identifier.
+NewOrdinalType = EnumerationType | SubrangeType.
+NewType = NewOrdinalType | SetType  | PackedsetType  | PointerType  | ProcedureType  | ArrayType  | RecordType.
+NormalPart = StatementSequence.
+OpaqueTypeDefinition = identifier.
+OpenArrayComponentType = FormalType.
+OpenArrayFormalType = "ARRAY" "OF" OpenArrayComponentType.
+OrdinalExpression = Expression.
+OrdinalTypeDenoter = OrdinalTypeIdentifier | NewOrdinalType.
+OrdinalTypeIdentifier = TypeIdentifier.
+PackedsetType = "PACKEDSET" "OF" BaseType.
+PointerType = "POINTER" "TO" BoundType.
+PointerValue = ValueDesignator.
+PointerVariableDesignator = VariableDesignator.
+ProcedureBody = "BEGIN" BlockBody.
+ProcedureCall = ProcedureDesignator [ActualParameters].
+ProcedureDeclaration = ProperProcedureDeclaration | FunctionProcedureDeclaration.
+ProcedureDesignator = ValueDesignator.
+ProcedureHeading = ProperProcedureHeading | FunctionProcedureHeading.
+ProcedureIdentifier = identifier.
+ProcedureType = ProperProcedureType | FunctionProcedureType.
+ProgramModule = "MODULE" ModuleIdentifier [InterruptProtection] ";" ImportLists ModuleBlock ModuleIdentifier ".".
+ProperProcedureBlock = Declarations [ProcedureBody] "END".
+ProperProcedureDeclaration = ProperProcedureHeading ";" (ProperProcedureBlock ProcedureIdentifier | "FORWARD").
+ProperProcedureHeading = "PROCEDURE" ProcedureIdentifier [FormalParameters].
+ProperProcedureType = "PROCEDURE" ["(" [FormalParameterTypeList] ")"].
+ProtectionExpression = ConstantExpression.
+QualifiedExport = "EXPORT" "QUALIFIED" IdentifierList ";".
+QualifiedIdentifier = {QualifyingIdentifier "."} identifier.
+QualifyingIdentifier = ModuleIdentifier.
+RangeType = OrdinalTypeIdentifier.
+RecordConstructedValue = "{" [StructureComponent {"," StructureComponent}] "}".
+RecordConstructor = RecordTypeIdentifier RecordConstructedValue.
+RecordDesignator = VariableDesignator | ValueDesignator.
+RecordType = "RECORD" FieldList "END".
+RecordTypeIdentifier = TypeIdentifier.
+RecordValue = ValueDesignator.
+RecordVariableDesignator = VariableDesignator.
+RelationalOperator = "=" | inequalityOperator | "<" | ">" | "<=" | subsetOperator | ">=" | supersetOperator | setMembershipOperator.
+RepeatedStructureComponent = StructureComponent ["BY" RepetitionFactor].
+RepeatStatement = "REPEAT" StatementSequence "UNTIL" BooleanExpression.
+RepetitionFactor = ConstantExpression.
+RetryStatement = "RETRY".
+ReturnStatement = SimpleReturnStatement | FunctionReturnStatement.
+SelectedDesignator = RecordVariableDesignator "." FieldIdentifier.
+SelectedValue = RecordValue "." FieldIdentifier.
+SetConstructedValue = "{" [Member {"," Member}] "}".
+SetConstructor = SetTypeIdentifier SetConstructedValue.
+SetType = "SET" "OF" BaseType.
+SetTypeIdentifier = TypeIdentifier.
+SimpleExpression = [sign] Term {TermOperator Term}.
+SimpleImport = "IMPORT" IdentifierList ";".
+SimpleReturnStatement = "RETURN".
+Singleton = OrdinalExpression.
+Statement = EmptyStatement | AssignmentStatement | ProcedureCall | ReturnStatement | RetryStatement | WithStatement | IfStatement | CaseStatement | WhileStatement | RepeatStatement | LoopStatement | ExitStatement | ForStatement.
+StatementSequence = Statement {";" Statement}.
+StepSize = ConstantExpression.
+StructureComponent = Expression | ArrayConstructedValue | RecordConstructedValue | SetConstructedValue.
+SubrangeType = [RangeType] "[" ConstantExpression "..." ConstantExpression "]".
+TagField = [TagIdentifier] ":" TagType.
+TagIdentifier = identifier.
+TagType = OrdinalTypeIdentifier.
+Term = Factor {FactorOperator Factor}.
+TermOperator = "+" | setUnionOperator | "-" | setDifferenceOperator | "OR" | stringCatenateSymbol.
+TypeDeclaration = identifier "=" TypeDenoter.
+TypeDefinition = TypeDeclaration | OpaqueTypeDefinition.
+TypeDenoter = TypeIdentifier | NewType.
+TypeIdentifier = QualifiedIdentifier.
+TypeParameter = TypeIdentifier.
+UnqualifiedExport = "EXPORT" IdentifierList ";".
+UnqualifiedImport = "FROM" ModuleIdentifier "IMPORT" IdentifierList ";".
+ValueConstructor = ArrayConstructor | RecordConstructor | SetConstructor.
+ValueDesignator = EntireValue | IndexedValue | SelectedValue | DereferencedValue.
+ValueFormalType = FormalType.
+ValueOfAddressType = ConstantExpression.
+ValueParameterSpecification = IdentifierList ":" FormalType.
+VariableDeclaration = VariableIdentifierList ":" TypeDenoter.
+VariableDesignator = EntireDesignator | IndexedDesignator | SelectedDesignator | DereferencedDesignator.
+VariableFormalType = "VAR" FormalType.
+VariableIdentifierList = identifier [ MachineAddress] {"," identifier [MachineAddress]}.
+VariableParameterSpecification = "VAR" IdentifierList ":" FormalType.
+Variant = [VariantLabelList ":" FieldList].
+VariantElsePart = "ELSE" FieldList.
+VariantFields = "CASE" TagField "OF" VariantList "END".
+VariantLabel = ConstantExpression ["..." ConstantExpression].
+VariantLabelList = VariantLabel {"," VariantLabel}.
+VariantList = Variant {"|" Variant} [VariantElsePart].
+WhileStatement = "WHILE" BooleanExpression "DO" StatementSequence "END".
+WithStatement = "WITH" RecordDesignator "DO" StatementSequence "END".`
 
 func TestParseValid(t *testing.T) {
 	t.Parallel()
@@ -72,6 +248,7 @@ func TestParseValid(t *testing.T) {
 		`S = (S) .`,
 		`S = [S] .`,
 		`S = {S} .`,
+		modula2,
 		oberon2,
 	} {
 		t.Log(test)
@@ -106,6 +283,7 @@ func TestParseValidateValid(t *testing.T) {
 		`S = x.`,
 		`S = A. A = S.`,
 		`S = A. A = B. B = x.`,
+		modula2,
 		oberon2,
 	} {
 		t.Log(test)
