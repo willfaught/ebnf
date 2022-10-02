@@ -315,10 +315,6 @@ func TestParseValidateInvalid(t *testing.T) {
 			t.Error("no validate error")
 		}
 	}
-	var g Grammar
-	if err := g.Validate(); err == nil {
-		t.Error("no validate error")
-	}
 }
 
 func TestGrammarFirstNonterminals(t *testing.T) {

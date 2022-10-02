@@ -29,7 +29,6 @@ show conflicting productions if not
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -315,6 +314,8 @@ func (e Error) Error() string {
 }
 
 // Expression is the right side of a production.
+// There must be at least one term.
+// All terms must not be nil.
 type Expression struct {
 	Terms []*Term
 }
@@ -327,7 +328,8 @@ func (e Expression) String() string {
 	return strings.Join(ss, " | ")
 }
 
-// Factor is a concrete form that can be sequenced.
+// Factor is a term sequence.
+// One, and only one, of the fields must not be nil.
 type Factor struct {
 	Group      *Expression
 	Identifier *Identifier
@@ -354,6 +356,7 @@ func (f Factor) String() string {
 }
 
 // Grammar is an abstract syntax tree for a grammar.
+// There must be at least one production.
 type Grammar struct {
 	Productions []*Production
 }
@@ -553,29 +556,7 @@ func (g Grammar) Validate() error {
 	used := map[string]bool{}
 	traverse(&g, func(item any) {
 		switch item := item.(type) {
-		case *Expression:
-			if item == nil {
-				errs = append(errs, errors.New("expression is nil"))
-				return
-			}
-			if len(item.Terms) == 0 {
-				errs = append(errs, errors.New("expression is empty"))
-				return
-			}
-		case *Factor:
-			if item == nil {
-				errs = append(errs, errors.New("factor is nil"))
-				return
-			}
-			if *item == (Factor{}) {
-				errs = append(errs, errors.New("factor is empty"))
-				return
-			}
 		case *Grammar:
-			if len(item.Productions) == 0 {
-				errs = append(errs, errors.New("grammar is empty"))
-				return
-			}
 			for _, p := range item.Productions {
 				if p.Identifier != nil && len(p.Identifier.Text) > 0 && !terminal(p.Identifier) {
 					if _, ok := used[p.Identifier.Text]; ok {
@@ -586,14 +567,6 @@ func (g Grammar) Validate() error {
 				}
 			}
 		case *Identifier:
-			if item == nil {
-				errs = append(errs, errors.New("identifier is nil"))
-				return
-			}
-			if len(item.Text) == 0 {
-				errs = append(errs, errors.New("identifier is empty"))
-				return
-			}
 			if !terminal(item) {
 				b, ok := used[item.Text]
 				if !ok {
@@ -604,35 +577,9 @@ func (g Grammar) Validate() error {
 					used[item.Text] = true
 				}
 			}
-		case *Literal:
-			if item == nil {
-				errs = append(errs, errors.New("literal is nil"))
-				return
-			}
 		case *Production:
-			if item == nil {
-				errs = append(errs, errors.New("production is nil"))
-				return
-			}
-			if item.Identifier == nil {
-				errs = append(errs, errors.New("identifier is nil"))
-				return
-			}
-			if len(item.Identifier.Text) == 0 {
-				errs = append(errs, errors.New("identifier is empty"))
-				return
-			}
 			if terminal(item.Identifier) {
 				errs = append(errs, fmt.Errorf("identifier %q starts with a lowercase character", item.Identifier.Text))
-				return
-			}
-		case *Term:
-			if item == nil {
-				errs = append(errs, errors.New("term is nil"))
-				return
-			}
-			if len(item.Factors) == 0 {
-				errs = append(errs, errors.New("term is empty"))
 				return
 			}
 		}
@@ -649,6 +596,7 @@ func (g Grammar) Validate() error {
 }
 
 // Identifier is a terminal or non-terminal identifier.
+// The text must not be empty.
 type Identifier struct {
 	Text string
 }
@@ -658,6 +606,7 @@ func (i Identifier) String() string {
 }
 
 // Literal is the content of a quoted string.
+// If the text is empty, it represents epsilon, the empty string.
 type Literal struct {
 	Text string
 }
@@ -666,7 +615,8 @@ func (l Literal) String() string {
 	return fmt.Sprintf("%q", l.Text)
 }
 
-// Production is a production.
+// Production is a grammar production.
+// The identifier and expression must not be nil.
 type Production struct {
 	Identifier *Identifier
 	Expression *Expression
@@ -676,7 +626,9 @@ func (p Production) String() string {
 	return fmt.Sprintf("%s = %v.", p.Identifier, p.Expression)
 }
 
-// Term is an alternative.
+// Term is an expression alternative.
+// There must be at least one factor.
+// All factors must not be nil.
 type Term struct {
 	Factors []*Factor
 }
