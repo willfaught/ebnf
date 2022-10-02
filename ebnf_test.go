@@ -6,6 +6,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+const arith = `Expression = Term {("+" | "-") Term}.
+Term = Factor {("*" | "/") Factor}.
+Factor = Number | "(" Expression ")".
+Number = Digit {Digit} .
+Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9".`
+
 const modula2 = `CompilationModule = ProgramModule | DefinitionModule | ImplementationModule.
 ActualParameter = VariableDesignator | Expression | TypeParameter.
 ActualParameterList = ActualParameter {"," ActualParameter}.
@@ -248,6 +254,7 @@ func TestParseValid(t *testing.T) {
 		`S = (S) .`,
 		`S = [S] .`,
 		`S = {S} .`,
+		arith,
 		modula2,
 		oberon2,
 	} {
@@ -283,6 +290,7 @@ func TestParseValidateValid(t *testing.T) {
 		`S = x.`,
 		`S = A. A = S.`,
 		`S = A. A = B. B = x.`,
+		arith,
 		modula2,
 		oberon2,
 	} {
