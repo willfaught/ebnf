@@ -218,6 +218,8 @@ func firstFactors(all map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
 }
 
 // First returns the first terminals of a valid grammar.
+// The map keys are [*Production], [*Expression], [*Term], [*Factor], [Identifier], or [Literal] values.
+// The map values are sets of [Identifier] and [Literal] values.
 func (g Grammar) First() map[any]map[any]struct{} {
 	all := map[any]map[any]struct{}{}
 	for _, p := range g.Productions {
@@ -251,7 +253,7 @@ func (g Grammar) First() map[any]map[any]struct{} {
 	return all
 }
 
-// FirstNonterminals returns the first terminals of a valid grammar for its non-terminals.
+// FirstNonterminals returns the first terminals of the non-terminals of a valid grammar.
 func (g Grammar) FirstNonterminals() map[string]map[any]struct{} {
 	first := map[string]map[any]struct{}{}
 	for k, v := range g.First() {
@@ -361,6 +363,8 @@ func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struc
 }
 
 // Follow returns the follow terminals of a valid grammar.
+// The map keys are non-terminal [Identifier] text values.
+// The map values are sets of [Identifier] and [Literal] values.
 func (g Grammar) Follow() map[string]map[any]struct{} {
 	return g.follow(g.First())
 }
@@ -371,6 +375,7 @@ type FirstFirstConflictError struct {
 	Terminal    any // an Identifier or Literal
 }
 
+// Error indicates a first/first conflict exists for an LL(1) parser
 func (f FirstFirstConflictError) Error() string {
 	var kind, content string
 	switch t := f.Terminal.(type) {
@@ -447,6 +452,7 @@ func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[
 }
 
 // Conflict returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
+// Either a FirstFirstConflictError, a FirstFollowConflictError, or nil are returned.
 func (g Grammar) Conflict() error {
 	first := g.First()
 	follow := g.follow(first)
