@@ -56,6 +56,13 @@ IdentList     = IdentDef {"," IdentDef}.
 Qualident     = [ident "."] ident.
 IdentDef      = ident ["*" | "-"].`
 
+const textbook = `
+EA = TA EB.
+EB = "+" TA EB | "".
+TA = F TB.
+TB = "*" F TB | "".
+F = id | "(" EA ")".`
+
 func TestParseValid(t *testing.T) {
 	t.Parallel()
 	for _, test := range []string{
@@ -299,6 +306,28 @@ func TestGrammarFirstNonterminals(t *testing.T) {
 				"C": {Identifier{"x"}: {}},
 			},
 		},
+		{
+			`S = (a | "") b.`,
+			map[string]map[any]struct{}{
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+				},
+			},
+		},
+		{
+			`S = A b. A = a | "".`,
+			map[string]map[any]struct{}{
+				"A": {
+					Identifier{"a"}: {},
+					Literal{}:       {},
+				},
+				"S": {
+					Identifier{"a"}: {},
+					Identifier{"b"}: {},
+				},
+			},
+		},
 	} {
 		t.Log("grammar:", test.grammar)
 		g, err := Parse(test.grammar)
@@ -475,6 +504,82 @@ func TestGrammarFollow(t *testing.T) {
 		}
 		if a, e := g.Follow(), test.follow; !cmp.Equal(a, e) {
 			t.Error("wrong follow set:\n", cmp.Diff(a, e))
+		}
+	}
+}
+
+func TestGrammarString(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		g string
+		s string
+	}{
+		{g: `S = a.`},
+		{g: `S = "a".`},
+		{g: `S = (a).`},
+		{g: `S = [a].`},
+		{g: `S = {a}.`},
+		{g: `S = a b.`},
+		{g: `S = a | b.`},
+		{g: `S = (a b).`},
+		{g: `S = [a b].`},
+		{g: `S = {a b}.`},
+		{g: `S = a b | c d.`},
+		{g: `S = (a b) (c d).`},
+		{g: "S = A.\nA = a."},
+	} {
+		t.Log("grammar:", test.g)
+		g, err := Parse(test.g)
+		if err != nil {
+			t.Error("parse error:", err)
+			continue
+		}
+		if err := g.Validate(); err != nil {
+			t.Error("validate error:", err)
+			continue
+		}
+		e := test.s
+		if e == "" {
+			e = test.g
+		}
+		if a := g.String(); !cmp.Equal(a, e) {
+			t.Error("wrong string:\n", cmp.Diff(a, e))
+		}
+	}
+}
+
+func TestGrammarConflict(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		grammar string
+		err     error
+	}{
+		{`S = a.`, nil},
+		{`S = A. A = a.`, nil},
+		{`S = a | a.`, FirstFirstConflictError{"S", Identifier{"a"}}},
+		{`S = a | b.`, nil},
+		{`S = A | A. A = a.`, FirstFirstConflictError{"S", Identifier{"a"}}},
+		{`S = A | B. A = a. B = a.`, FirstFirstConflictError{"S", Identifier{"a"}}},
+		{`S = A | B. A = a. B = b.`, nil},
+		{`S = A B | B. A = a. B = b.`, nil},
+		{`S = A B | B. A = a | "". B = b.`, FirstFirstConflictError{"S", Identifier{"b"}}},
+		{`S = A a. A = a.`, nil},
+		{`S = A "a" "b". A = "a" | "".`, FirstFollowConflictError{"A", Literal{"a"}}},
+		{`S = A a. A = b B. B = a | "".`, FirstFollowConflictError{"B", Identifier{"a"}}},
+		{textbook, nil},
+	} {
+		t.Log("grammar:", test.grammar)
+		g, err := Parse(test.grammar)
+		if err != nil {
+			t.Error("parse error:", err)
+			continue
+		}
+		if err := g.Validate(); err != nil {
+			t.Error("validate error:", err)
+			continue
+		}
+		if a, e := g.Conflict(), test.err; !cmp.Equal(a, e) {
+			t.Error("wrong conflict:\n", cmp.Diff(a, e))
 		}
 	}
 }
