@@ -9,24 +9,6 @@
 // [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
 package ebnf
 
-/*
-Grammar methods:
-list of terminal syms
-list of nonterm syms
-for each nonterm sym, the sets of its start and follow syms
-based on these 3, determine if given syntax can be parsed top down with lookahead of 1 sym
-show conflicting productions if not
-*/
-
-// func DeterministicL1(g *Grammar) bool {
-// A | B: first(A) and first(B) must be disjoint
-// A B: if empty sequence in A, then first(A) and first(B) must be disjoint
-// [A] B C..., {A} B C...: first(A) must be disjoint from first(B), first(C), etc..., anything that follows [A]/{A}
-// No left recursion: A = A...
-// symbol sets: first, follow
-// return false
-// }
-
 import (
 	"bytes"
 	"fmt"
@@ -36,16 +18,108 @@ import (
 	"unicode/utf8"
 )
 
-var tokenString = map[token]string{
-	lparen: "(",
-	lbrak:  "[",
-	lbrace: "{",
-	bar:    "|",
-	eql:    "=",
-	rparen: ")",
-	rbrak:  "]",
-	rbrace: "}",
-	period: ".",
+// Error has all parse errors.
+type Error struct {
+	Errors []error
+}
+
+// Error returns all the error strings joined by a line feed.
+func (e Error) Error() string {
+	ss := make([]string, len(e.Errors))
+	for i, err := range e.Errors {
+		ss[i] = err.Error()
+	}
+	return strings.Join(ss, "\n")
+}
+
+// Expression is the right side of a production.
+// There must be at least one term.
+// All terms must not be nil.
+type Expression struct {
+	Terms []*Term
+}
+
+// String returns the term strings joined by " | ".
+func (e Expression) String() string {
+	ss := make([]string, len(e.Terms))
+	for i, t := range e.Terms {
+		ss[i] = fmt.Sprint(t)
+	}
+	return strings.Join(ss, " | ")
+}
+
+// Factor is a term sequence.
+// One, and only one, of the fields must not be nil.
+type Factor struct {
+	Group      *Expression
+	Identifier *Identifier
+	Literal    *Literal
+	Option     *Expression
+	Repetition *Expression
+}
+
+// String returns a group string surrounded by round brackets,
+// an option string surrounded by square brackets,
+// a repetition string surrounded by curly brackets,
+// and an identifier or literal string as itself.
+func (f Factor) String() string {
+	switch {
+	case f.Group != nil:
+		return fmt.Sprintf("(%v)", f.Group)
+	case f.Identifier != nil:
+		return f.Identifier.String()
+	case f.Literal != nil:
+		return f.Literal.String()
+	case f.Option != nil:
+		return fmt.Sprintf("[%v]", f.Option)
+	case f.Repetition != nil:
+		return fmt.Sprintf("{%v}", f.Repetition)
+	default:
+		panic(f)
+	}
+}
+
+// Grammar is an abstract syntax tree for a grammar.
+// There must be at least one production.
+type Grammar struct {
+	Productions []*Production
+}
+
+// String returns the production strings joined by a line feed.
+func (g Grammar) String() string {
+	ss := make([]string, len(g.Productions))
+	for i, p := range g.Productions {
+		ss[i] = fmt.Sprint(p)
+	}
+	return strings.Join(ss, "\n")
+}
+
+// Parse returns a Grammar for a valid grammar, or an error otherwise.
+func Parse(s string) (*Grammar, error) {
+	p := newParser(bytes.NewBufferString(s))
+	g := p.grammar()
+	var errs []error
+	if len(p.lexer.errs) > 0 {
+		errs = p.lexer.errs
+	}
+	if len(p.errs) > 0 {
+		errs = append(errs, p.errs...)
+	}
+	if len(errs) > 0 {
+		return nil, Error{Errors: errs}
+	}
+	return g, nil
+}
+
+func merge(from, to map[any]struct{}) {
+	for k, v := range from {
+		to[k] = v
+	}
+}
+
+func terminal(i *Identifier) bool {
+	r, _ := utf8.DecodeRuneInString(i.Text)
+	return unicode.IsLower(r)
 }
 
 func first(all map[any]map[any]struct{}, item any) map[any]struct{} {
@@ -130,6 +204,51 @@ func firstFactors(all map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
 	return this
 }
 
+// First returns the first terminals of a valid grammar.
+func (g Grammar) First() map[any]map[any]struct{} {
+	all := map[any]map[any]struct{}{}
+	for _, p := range g.Productions {
+		this := first(all, p)
+		delete(this, *p.Identifier)
+		all[*p.Identifier] = this
+	}
+	for {
+		var merged bool
+		for _, terminals := range all {
+			for t := range terminals {
+				if i, ok := t.(Identifier); ok && !terminal(&i) {
+					merge(all[i], terminals)
+					delete(terminals, i)
+					merged = true
+				}
+			}
+		}
+		if !merged {
+			break
+		}
+	}
+	for _, terminals := range all {
+		for terminal := range terminals {
+			if term, ok := terminal.(*Term); ok {
+				delete(terminals, terminal)
+				merge(firstFactors(all, term.Factors), terminals)
+			}
+		}
+	}
+	return all
+}
+
+// FirstNonterminals returns the first terminals of a valid grammar for its non-terminals.
+func (g Grammar) FirstNonterminals() map[string]map[any]struct{} {
+	first := map[string]map[any]struct{}{}
+	for k, v := range g.First() {
+		if p, ok := k.(*Production); ok {
+			first[p.Identifier.Text] = v
+		}
+	}
+	return first
+}
+
 func follow(first map[any]map[any]struct{}, all map[string]map[any]struct{}, p *Production, item any) {
 	switch item := item.(type) {
 	case nil:
@@ -203,49 +322,125 @@ func firstFactorsCopy(first map[any]map[any]struct{}, fs []*Factor) map[any]stru
 	return copy
 }
 
-func merge(from, to map[any]struct{}) {
-	for k, v := range from {
-		to[k] = v
+func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struct{} {
+	all := map[string]map[any]struct{}{}
+	for _, p := range g.Productions {
+		follow(first, all, nil, p)
+		delete(all[p.Identifier.Text], *p.Identifier)
 	}
-}
-
-func terminal(i *Identifier) bool {
-	r, _ := utf8.DecodeRuneInString(i.Text)
-	return unicode.IsLower(r)
-}
-
-func tokenName(t token, text string) string {
-	var s string
-	switch t {
-	case ident:
-		s = "identifier"
-	case literal:
-		s = "literal"
-	case other:
-		s = fmt.Sprintf("%q", text)
-	default:
-		s2, ok := tokenString[t]
-		if !ok {
-			panic(t)
+	for {
+		var merged bool
+		for _, terminals := range all {
+			for t := range terminals {
+				if i, ok := t.(Identifier); ok && !terminal(&i) {
+					existing := all[i.Text]
+					merge(existing, terminals)
+					delete(terminals, t)
+					merged = true
+				}
+			}
 		}
-		s = fmt.Sprintf("%q", s2)
+		if !merged {
+			break
+		}
 	}
-	return s
+	return all
 }
 
-func tokenValue(t token, text string) string {
-	var s string
-	switch t {
-	case ident, literal, other:
-		s = fmt.Sprintf("%q", text)
+// Follow returns the follow terminals of a valid grammar.
+func (g Grammar) Follow() map[string]map[any]struct{} {
+	return g.follow(g.First())
+}
+
+// FirstFirstConflictError is a first/first LL(1) grammar parse conflict.
+type FirstFirstConflictError struct {
+	Nonterminal string
+	Terminal    any // an Identifier or Literal
+}
+
+func (f FirstFirstConflictError) Error() string {
+	var kind, content string
+	switch t := f.Terminal.(type) {
+	case Identifier:
+		kind = "identifier"
+		content = t.Text
+	case Literal:
+		kind = "literal"
+		content = t.Text
 	default:
-		s2, ok := tokenString[t]
-		if !ok {
-			panic(t)
-		}
-		s = fmt.Sprintf("%q", s2)
+		panic(f.Terminal)
 	}
-	return s
+	return fmt.Sprintf("first/first conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
+}
+
+func (g Grammar) firstFirstConflict(first map[any]map[any]struct{}) error {
+	for _, p := range g.Productions {
+		terminals := map[any]struct{}{}
+		for _, t := range p.Expression.Terms {
+			for terminal := range first[t] {
+				if _, ok := terminals[terminal]; ok {
+					return FirstFirstConflictError{Nonterminal: p.Identifier.Text, Terminal: terminal}
+				}
+				terminals[terminal] = struct{}{}
+			}
+		}
+	}
+	return nil
+}
+
+// FirstFollowConflictError is a first/follow LL(1) grammar parse conflict.
+type FirstFollowConflictError struct {
+	Nonterminal string
+	Terminal    any // an Identifier or Literal
+}
+
+func (f FirstFollowConflictError) Error() string {
+	var kind, content string
+	switch t := f.Terminal.(type) {
+	case Identifier:
+		kind = "identifier"
+		content = t.Text
+	case Literal:
+		kind = "literal"
+		content = t.Text
+	default:
+		panic(f.Terminal)
+	}
+	return fmt.Sprintf("first/follow conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
+}
+
+func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[string]map[any]struct{}) error {
+	for _, p := range g.Productions {
+		thisFirst := first[*p.Identifier]
+		if _, ok := thisFirst[Literal{}]; !ok {
+			continue
+		}
+		thisFollow := follow[p.Identifier.Text]
+		var smaller, larger map[any]struct{}
+		if len(thisFirst) < len(thisFollow) {
+			smaller = thisFirst
+			larger = thisFollow
+		} else {
+			smaller = thisFollow
+			larger = thisFirst
+		}
+		for x := range smaller {
+			if _, ok := larger[x]; ok {
+				return FirstFollowConflictError{Nonterminal: p.Identifier.Text, Terminal: x}
+			}
+		}
+	}
+	return nil
+}
+
+// Conflict returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
+func (g Grammar) Conflict() error {
+	first := g.First()
+	follow := g.follow(first)
+	if err := g.firstFirstConflict(first); err != nil {
+		return err
+	}
+	return g.firstFollowConflict(first, follow)
 }
 
 func traverse(item any, visit func(any)) {
@@ -299,258 +494,7 @@ func traverse(item any, visit func(any)) {
 	}
 }
 
-// Error has one or more errors.
-type Error struct {
-	Errors []error
-}
-
-// Error returns all the error strings joined by a newline.
-func (e Error) Error() string {
-	ss := make([]string, len(e.Errors))
-	for i, err := range e.Errors {
-		ss[i] = err.Error()
-	}
-	return strings.Join(ss, "\n")
-}
-
-// Expression is the right side of a production.
-// There must be at least one term.
-// All terms must not be nil.
-type Expression struct {
-	Terms []*Term
-}
-
-func (e Expression) String() string {
-	ss := make([]string, len(e.Terms))
-	for i, t := range e.Terms {
-		ss[i] = fmt.Sprint(t)
-	}
-	return strings.Join(ss, " | ")
-}
-
-// Factor is a term sequence.
-// One, and only one, of the fields must not be nil.
-type Factor struct {
-	Group      *Expression
-	Identifier *Identifier
-	Literal    *Literal
-	Option     *Expression
-	Repetition *Expression
-}
-
-func (f Factor) String() string {
-	switch {
-	case f.Group != nil:
-		return fmt.Sprintf("(%v)", f.Group)
-	case f.Identifier != nil:
-		return f.Identifier.String()
-	case f.Literal != nil:
-		return f.Literal.String()
-	case f.Option != nil:
-		return fmt.Sprintf("[%v]", f.Option)
-	case f.Repetition != nil:
-		return fmt.Sprintf("{%v}", f.Repetition)
-	default:
-		panic(f)
-	}
-}
-
-// Grammar is an abstract syntax tree for a grammar.
-// There must be at least one production.
-type Grammar struct {
-	Productions []*Production
-}
-
-func (g Grammar) String() string {
-	ss := make([]string, len(g.Productions))
-	for i, p := range g.Productions {
-		ss[i] = fmt.Sprint(p)
-	}
-	return strings.Join(ss, "\n")
-}
-
-// Parse returns a Grammar for a valid grammar, or an error otherwise.
-func Parse(s string) (*Grammar, error) {
-	p := newParser(bytes.NewBufferString(s))
-	g := p.grammar()
-	var errs []error
-	if len(p.lexer.errs) > 0 {
-		errs = p.lexer.errs
-	}
-	if len(p.errs) > 0 {
-		errs = append(errs, p.errs...)
-	}
-	if len(errs) > 0 {
-		return nil, Error{Errors: errs}
-	}
-	return g, nil
-}
-
-// First returns the first terminals of a valid grammar.
-func (g Grammar) First() map[any]map[any]struct{} {
-	all := map[any]map[any]struct{}{}
-	for _, p := range g.Productions {
-		this := first(all, p)
-		delete(this, *p.Identifier)
-		all[*p.Identifier] = this
-	}
-	for {
-		var merged bool
-		for _, terminals := range all {
-			for t := range terminals {
-				if i, ok := t.(Identifier); ok && !terminal(&i) {
-					merge(all[i], terminals)
-					delete(terminals, i)
-					merged = true
-				}
-			}
-		}
-		if !merged {
-			break
-		}
-	}
-	for _, terminals := range all {
-		for terminal := range terminals {
-			if term, ok := terminal.(*Term); ok {
-				delete(terminals, terminal)
-				merge(firstFactors(all, term.Factors), terminals)
-			}
-		}
-	}
-	return all
-}
-
-// FirstNonterminals returns the first terminals of a valid grammar for its non-terminals.
-func (g Grammar) FirstNonterminals() map[string]map[any]struct{} {
-	first := map[string]map[any]struct{}{}
-	for k, v := range g.First() {
-		if p, ok := k.(*Production); ok {
-			first[p.Identifier.Text] = v
-		}
-	}
-	return first
-}
-
-// Follow returns the follow terminals of a valid grammar.
-func (g Grammar) Follow() map[string]map[any]struct{} {
-	return g.follow(g.First())
-}
-
-func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struct{} {
-	all := map[string]map[any]struct{}{}
-	for _, p := range g.Productions {
-		follow(first, all, nil, p)
-		delete(all[p.Identifier.Text], *p.Identifier)
-	}
-	for {
-		var merged bool
-		for _, terminals := range all {
-			for t := range terminals {
-				if i, ok := t.(Identifier); ok && !terminal(&i) {
-					existing := all[i.Text]
-					merge(existing, terminals)
-					delete(terminals, t)
-					merged = true
-				}
-			}
-		}
-		if !merged {
-			break
-		}
-	}
-	return all
-}
-
-// Conflict returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
-func (g Grammar) Conflict() error {
-	first := g.First()
-	follow := g.follow(first)
-	if err := g.firstFirstConflict(first); err != nil {
-		return err
-	}
-	return g.firstFollowConflict(first, follow)
-}
-
-type FirstFirstConflictError struct {
-	Nonterminal string
-	Terminal    any
-}
-
-func (f FirstFirstConflictError) Error() string {
-	var kind, content string
-	switch t := f.Terminal.(type) {
-	case Identifier:
-		kind = "identifier"
-		content = t.Text
-	case Literal:
-		kind = "literal"
-		content = t.Text
-	default:
-		panic(f.Terminal)
-	}
-	return fmt.Sprintf("first/first conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
-}
-
-func (g Grammar) firstFirstConflict(first map[any]map[any]struct{}) error {
-	for _, p := range g.Productions {
-		terminals := map[any]struct{}{}
-		for _, t := range p.Expression.Terms {
-			for terminal := range first[t] {
-				if _, ok := terminals[terminal]; ok {
-					return FirstFirstConflictError{Nonterminal: p.Identifier.Text, Terminal: terminal}
-				}
-				terminals[terminal] = struct{}{}
-			}
-		}
-	}
-	return nil
-}
-
-type FirstFollowConflictError struct {
-	Nonterminal string
-	Terminal    any
-}
-
-func (f FirstFollowConflictError) Error() string {
-	var kind, content string
-	switch t := f.Terminal.(type) {
-	case Identifier:
-		kind = "identifier"
-		content = t.Text
-	case Literal:
-		kind = "literal"
-		content = t.Text
-	default:
-		panic(f.Terminal)
-	}
-	return fmt.Sprintf("first/follow conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
-}
-
-func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[string]map[any]struct{}) error {
-	for _, p := range g.Productions {
-		thisFirst := first[*p.Identifier]
-		if _, ok := thisFirst[Literal{}]; !ok {
-			continue
-		}
-		thisFollow := follow[p.Identifier.Text]
-		var smaller, larger map[any]struct{}
-		if len(thisFirst) < len(thisFollow) {
-			smaller = thisFirst
-			larger = thisFollow
-		} else {
-			smaller = thisFollow
-			larger = thisFirst
-		}
-		for x := range smaller {
-			if _, ok := larger[x]; ok {
-				return FirstFollowConflictError{Nonterminal: p.Identifier.Text, Terminal: x}
-			}
-		}
-	}
-	return nil
-}
-
-// Validate checks that production identifiers are capitalized and defined.
+// Validate checks that production identifiers are capitalized, defined, and used.
 func (g Grammar) Validate() error {
 	var errs []error
 	used := map[string]bool{}
@@ -601,6 +545,7 @@ type Identifier struct {
 	Text string
 }
 
+// String returns the text.
 func (i Identifier) String() string {
 	return i.Text
 }
@@ -611,6 +556,7 @@ type Literal struct {
 	Text string
 }
 
+// String returns the text surrounded by double quotes.
 func (l Literal) String() string {
 	return fmt.Sprintf("%q", l.Text)
 }
@@ -622,6 +568,8 @@ type Production struct {
 	Expression *Expression
 }
 
+// String returns the identifier and expression separated by " = ",
+// followed by a period.
 func (p Production) String() string {
 	return fmt.Sprintf("%s = %v.", p.Identifier, p.Expression)
 }
@@ -633,6 +581,7 @@ type Term struct {
 	Factors []*Factor
 }
 
+// String returns the factor strings joined by a space.
 func (t Term) String() string {
 	ss := make([]string, len(t.Factors))
 	for i, f := range t.Factors {
@@ -650,6 +599,69 @@ func (e expectedRuneError) Error() string {
 	return fmt.Sprintf("%v:%v: expected character %q but found character %q", e.line, e.col, e.expected, e.actual)
 }
 
+type token int
+
+const (
+	ident   token = 0
+	literal token = 2
+	lparen  token = 3
+	lbrak   token = 4
+	lbrace  token = 5
+	bar     token = 6
+	eql     token = 7
+	rparen  token = 8
+	rbrak   token = 9
+	rbrace  token = 10
+	period  token = 11
+	other   token = 12
+)
+
+var tokenString = map[token]string{
+	lparen: "(",
+	lbrak:  "[",
+	lbrace: "{",
+	bar:    "|",
+	eql:    "=",
+	rparen: ")",
+	rbrak:  "]",
+	rbrace: "}",
+	period: ".",
+}
+
+func tokenName(t token, text string) string {
+	var s string
+	switch t {
+	case ident:
+		s = "identifier"
+	case literal:
+		s = "literal"
+	case other:
+		s = fmt.Sprintf("%q", text)
+	default:
+		s2, ok := tokenString[t]
+		if !ok {
+			panic(t)
+		}
+		s = fmt.Sprintf("%q", s2)
+	}
+	return s
+}
+
+func tokenValue(t token, text string) string {
+	var s string
+	switch t {
+	case ident, literal, other:
+		s = fmt.Sprintf("%q", text)
+	default:
+		s2, ok := tokenString[t]
+		if !ok {
+			panic(t)
+		}
+		s = fmt.Sprintf("%q", s2)
+	}
+	return s
+}
+
 type expectedTokenError struct {
 	textError
 	expected, actual token
@@ -660,16 +672,6 @@ func (e expectedTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenName(e.expected, e.text), tokenValue(e.actual, e.text))
 }
 
-type readError textError
-
-func (e readError) Error() string {
-	return fmt.Sprintf("%v:%v: cannot read character", e.line, e.col)
-}
-
-type textError struct {
-	line, col int
-}
-
 type unexpectedTokenError struct {
 	textError
 	token token
@@ -678,6 +680,16 @@ type unexpectedTokenError struct {
 
 func (e unexpectedTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenValue(e.token, e.text))
+}
+
+type readError textError
+
+func (e readError) Error() string {
+	return fmt.Sprintf("%v:%v: cannot read character", e.line, e.col)
+}
+
+type textError struct {
+	line, col int
 }
 
 type lexer struct {
@@ -891,20 +903,3 @@ func (p *parser) factor() *Factor {
 	}
 	return &f
 }
-
-type token int
-
-const (
-	ident   token = 0
-	literal token = 2
-	lparen  token = 3
-	lbrak   token = 4
-	lbrace  token = 5
-	bar     token = 6
-	eql     token = 7
-	rparen  token = 8
-	rbrak   token = 9
-	rbrace  token = 10
-	period  token = 11
-	other   token = 12
-)
