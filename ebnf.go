@@ -7,11 +7,11 @@
 //
 // Grammars are written like so:
 //
-//	Expression = Term { ( "+" | "-" ) Term } .
-//	Term = Factor { ( "*" | "/" ) Factor } .
-//	Factor = Number | "(" Expression ")" .
-//	Number = Digit { Digit } .
-//	Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" .
+//	Expression = Term {("+" | "-") Term}.
+//	Term = Factor {("*" | "/") Factor}.
+//	Factor = Number | "(" Expression ")".
+//	Number = Digit {Digit}.
+//	Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9".
 //
 // They can be parsed by [Parse] into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
