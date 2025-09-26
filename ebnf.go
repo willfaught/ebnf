@@ -1,7 +1,7 @@
 // Package ebnf represents and parses a variant of [Extended Backus-Naur Form] called [Wirth Syntax Notation].
 // Terminal identifiers must begin with a lowercase letter.
-// Non-terminal identifiers must begin with an uppercase letter.
-// The first production defines the start non-terminal identifier.
+// Nonterminal identifiers must begin with an uppercase letter.
+// The first production defines the start nonterminal identifier.
 // Terminal identifiers are assumed to be defined elsewhere.
 // Epsilon is represented by an empty literal.
 //
@@ -15,7 +15,7 @@
 //
 // They can be parsed by [Parse] into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
-// [Grammar.First] and [Grammar.Follow] compute the first and follow sets for non-terminal identifiers.
+// [Grammar.First] and [Grammar.Follow] compute the first and follow sets for nonterminal identifiers.
 // [Grammar.Conflict] determines whether a valid grammar can be parsed by an LL(1) parser.
 //
 // [Extended Backus-Naur Form]: https://en.wikipedia.org/wiki/Extended_Backus–Naur_form
@@ -253,7 +253,7 @@ func (g Grammar) First() map[any]map[any]struct{} {
 	return all
 }
 
-// FirstNonterminals returns the first terminals of the non-terminals of a valid grammar.
+// FirstNonterminals returns the first terminals of the nonterminals of a valid grammar.
 func (g Grammar) FirstNonterminals() map[string]map[any]struct{} {
 	first := map[string]map[any]struct{}{}
 	for k, v := range g.First() {
@@ -363,7 +363,7 @@ func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struc
 }
 
 // Follow returns the follow terminals of a valid grammar.
-// The map keys are non-terminal [Identifier] text values.
+// The map keys are nonterminal [Identifier] text values.
 // The map values are sets of [Identifier] and [Literal] values.
 func (g Grammar) Follow() map[string]map[any]struct{} {
 	return g.follow(g.First())
@@ -388,7 +388,7 @@ func (f FirstFirstConflictError) Error() string {
 	default:
 		panic(f.Terminal)
 	}
-	return fmt.Sprintf("first/first conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
+	return fmt.Sprintf("first/first conflict for %s %q for nonterminal %q", kind, content, f.Nonterminal)
 }
 
 func (g Grammar) firstFirstConflict(first map[any]map[any]struct{}) error {
@@ -424,7 +424,7 @@ func (f FirstFollowConflictError) Error() string {
 	default:
 		panic(f.Terminal)
 	}
-	return fmt.Sprintf("first/follow conflict for %s %q for non-terminal %q", kind, content, f.Nonterminal)
+	return fmt.Sprintf("first/follow conflict for %s %q for nonterminal %q", kind, content, f.Nonterminal)
 }
 
 func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[string]map[any]struct{}) error {
@@ -558,7 +558,7 @@ func (g Grammar) Validate() error {
 	return nil
 }
 
-// Identifier is a terminal or non-terminal identifier.
+// Identifier is a terminal or nonterminal identifier.
 // The text must not be empty.
 type Identifier struct {
 	Text string
