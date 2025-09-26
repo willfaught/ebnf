@@ -3,7 +3,7 @@ package ebnf
 import "io"
 
 type parser struct {
-	lexer
+	*lexer
 	errs []error
 }
 

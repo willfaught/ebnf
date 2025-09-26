@@ -122,8 +122,8 @@ type lexer struct {
 	reader    io.RuneReader
 }
 
-func newLexer(r io.RuneReader) lexer {
-	return lexer{
+func newLexer(r io.RuneReader) *lexer {
+	return &lexer{
 		chars:    make([]rune, 0, 32),
 		charLine: 1,
 		reader:   r,
