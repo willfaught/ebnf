@@ -299,6 +299,7 @@ func follow(first map[any]map[any]struct{}, all map[string]map[any]struct{}, p *
 		}
 		for i, f := range item.Factors {
 			if f.Identifier == nil || terminal(f.Identifier) {
+				follow(first, all, p, f)
 				continue
 			}
 			this := all[f.Identifier.Text]

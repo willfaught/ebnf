@@ -570,6 +570,24 @@ func TestGrammarFollow(t *testing.T) {
 			},
 		},
 		{
+			`S = a (S b).`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = a [S b].`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"b"}: {}},
+			},
+		},
+		{
+			`S = a {S b}.`,
+			map[string]map[any]struct{}{
+				"S": {Identifier{"b"}: {}},
+			},
+		},
+		{
 			`S = S a S b.`,
 			map[string]map[any]struct{}{
 				"S": {Identifier{"a"}: {}, Identifier{"b"}: {}},
