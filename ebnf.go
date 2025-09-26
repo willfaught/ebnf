@@ -2,7 +2,7 @@
 // Terminal identifiers must begin with a lowercase letter.
 // Nonterminal identifiers must begin with an uppercase letter.
 // The first production defines the start nonterminal identifier.
-// Terminal identifiers are assumed to be defined elsewhere.
+// Terminal identifiers are assumed to be defined elsewhere and not cause conflicts.
 // Epsilon is represented by an empty literal.
 //
 // Grammars are written like so:
