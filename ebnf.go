@@ -30,34 +30,26 @@ import (
 	"unicode/utf8"
 )
 
-// Error has all parse errors.
-type Error struct {
-	Errors []error
+// Identifier is a terminal or nonterminal identifier.
+// The text must not be empty.
+type Identifier struct {
+	Text string
 }
 
-// Error returns all the error strings joined by a line feed.
-func (e Error) Error() string {
-	ss := make([]string, len(e.Errors))
-	for i, err := range e.Errors {
-		ss[i] = err.Error()
-	}
-	return strings.Join(ss, "\n")
+// String returns the text.
+func (i Identifier) String() string {
+	return i.Text
 }
 
-// Expression is the right side of a production.
-// There must be at least one term.
-// All terms must not be nil.
-type Expression struct {
-	Terms []*Term
+// Literal is the content of a quoted string.
+// If the text is empty, it represents epsilon, the empty string.
+type Literal struct {
+	Text string
 }
 
-// String returns the term strings joined by " | ".
-func (e Expression) String() string {
-	ss := make([]string, len(e.Terms))
-	for i, t := range e.Terms {
-		ss[i] = fmt.Sprint(t)
-	}
-	return strings.Join(ss, " | ")
+// String returns the text surrounded by double quotes.
+func (l Literal) String() string {
+	return fmt.Sprintf("%q", l.Text)
 }
 
 // Factor is a term sequence.
@@ -91,17 +83,67 @@ func (f Factor) String() string {
 	}
 }
 
+// Term is an expression alternative.
+// There must be at least one factor.
+// All factors must not be nil.
+type Term struct {
+	Factors []*Factor
+}
+
+// String returns the factor strings joined by a space.
+func (t Term) String() string {
+	ss := make([]string, len(t.Factors))
+	for i, f := range t.Factors {
+		ss[i] = fmt.Sprint(f)
+	}
+	return strings.Join(ss, " ")
+}
+
+// Expression is the right side of a production.
+// There must be at least one term.
+// All terms must not be nil.
+type Expression struct {
+	Terms []*Term
+}
+
+// String returns the term strings joined by " | ".
+func (e Expression) String() string {
+	ss := make([]string, len(e.Terms))
+	for i, t := range e.Terms {
+		ss[i] = fmt.Sprint(t)
+	}
+	return strings.Join(ss, " | ")
+}
+
+// Production is a grammar production.
+// The identifier and expression must not be nil.
+type Production struct {
+	Identifier *Identifier
+	Expression *Expression
+}
+
+// String returns the identifier and expression separated by " = ",
+// followed by a period.
+func (p Production) String() string {
+	return fmt.Sprintf("%s = %v.", p.Identifier, p.Expression)
+}
+
 // Grammar is an abstract syntax tree for a grammar.
 // There must be at least one production.
 type Grammar struct {
 	Productions []*Production
 }
 
-// String returns the production strings joined by a line feed.
-func (g Grammar) String() string {
-	ss := make([]string, len(g.Productions))
-	for i, p := range g.Productions {
-		ss[i] = fmt.Sprint(p)
+// Error has all parse errors.
+type Error struct {
+	Errors []error
+}
+
+// Error returns all the error strings joined by a line feed.
+func (e Error) Error() string {
+	ss := make([]string, len(e.Errors))
+	for i, err := range e.Errors {
+		ss[i] = err.Error()
 	}
 	return strings.Join(ss, "\n")
 }
@@ -263,6 +305,23 @@ func (g Grammar) FirstNonterminals() map[string]map[any]struct{} {
 	return first
 }
 
+func firstFactorsCopy(first map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
+	this := first[fs[0]]
+	if len(fs) == 1 {
+		return this
+	}
+	if _, ok := this[Literal{}]; !ok {
+		return this
+	}
+	copy := make(map[any]struct{}, len(this))
+	for k, v := range this {
+		copy[k] = v
+	}
+	delete(this, Literal{})
+	merge(firstFactorsCopy(first, fs[1:]), copy)
+	return copy
+}
+
 func follow(first map[any]map[any]struct{}, all map[string]map[any]struct{}, p *Production, item any) {
 	switch item := item.(type) {
 	case nil:
@@ -318,23 +377,6 @@ func follow(first map[any]map[any]struct{}, all map[string]map[any]struct{}, p *
 			}
 		}
 	}
-}
-
-func firstFactorsCopy(first map[any]map[any]struct{}, fs []*Factor) map[any]struct{} {
-	this := first[fs[0]]
-	if len(fs) == 1 {
-		return this
-	}
-	if _, ok := this[Literal{}]; !ok {
-		return this
-	}
-	copy := make(map[any]struct{}, len(this))
-	for k, v := range this {
-		copy[k] = v
-	}
-	delete(this, Literal{})
-	merge(firstFactorsCopy(first, fs[1:]), copy)
-	return copy
 }
 
 func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struct{} {
@@ -462,6 +504,15 @@ func (g Grammar) Conflict() error {
 	return g.firstFollowConflict(first, follow)
 }
 
+// String returns the production strings joined by a line feed.
+func (g Grammar) String() string {
+	ss := make([]string, len(g.Productions))
+	for i, p := range g.Productions {
+		ss[i] = fmt.Sprint(p)
+	}
+	return strings.Join(ss, "\n")
+}
+
 func traverse(item any, visit func(any)) {
 	if item == nil {
 		return
@@ -556,55 +607,4 @@ func (g Grammar) Validate() error {
 		return Error{Errors: errs}
 	}
 	return nil
-}
-
-// Identifier is a terminal or nonterminal identifier.
-// The text must not be empty.
-type Identifier struct {
-	Text string
-}
-
-// String returns the text.
-func (i Identifier) String() string {
-	return i.Text
-}
-
-// Literal is the content of a quoted string.
-// If the text is empty, it represents epsilon, the empty string.
-type Literal struct {
-	Text string
-}
-
-// String returns the text surrounded by double quotes.
-func (l Literal) String() string {
-	return fmt.Sprintf("%q", l.Text)
-}
-
-// Production is a grammar production.
-// The identifier and expression must not be nil.
-type Production struct {
-	Identifier *Identifier
-	Expression *Expression
-}
-
-// String returns the identifier and expression separated by " = ",
-// followed by a period.
-func (p Production) String() string {
-	return fmt.Sprintf("%s = %v.", p.Identifier, p.Expression)
-}
-
-// Term is an expression alternative.
-// There must be at least one factor.
-// All factors must not be nil.
-type Term struct {
-	Factors []*Factor
-}
-
-// String returns the factor strings joined by a space.
-func (t Term) String() string {
-	ss := make([]string, len(t.Factors))
-	for i, f := range t.Factors {
-		ss[i] = fmt.Sprint(f)
-	}
-	return strings.Join(ss, " ")
 }

@@ -7,38 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-type invalidCharError struct {
-	lexerError
-	token token
-	text  string
-}
-
-func (e invalidCharError) Error() string {
-	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
-}
-
-type readError struct {
-	lexerError
-	err error
-}
-
-func (e readError) Error() string {
-	return fmt.Sprintf("%v:%v: cannot read character: %v", e.line, e.col, e.err)
-}
-
-type unexpectedEOFError struct {
-	lexerError
-	expected rune
-}
-
-func (e unexpectedEOFError) Error() string {
-	return fmt.Sprintf("%v:%v: expected %q but found end of file", e.line, e.col, e.expected)
-}
-
-type lexerError struct {
-	line, col int
-}
-
 type lexer struct {
 	char      rune
 	charCol   int
@@ -58,6 +26,19 @@ func newLexer(r io.RuneReader) *lexer {
 		charLine: 1,
 		reader:   r,
 	}
+}
+
+type lexerError struct {
+	line, col int
+}
+
+type readError struct {
+	lexerError
+	err error
+}
+
+func (e readError) Error() string {
+	return fmt.Sprintf("%v:%v: cannot read character: %v", e.line, e.col, e.err)
 }
 
 const eot = -1
@@ -110,6 +91,25 @@ func (l *lexer) nextChar() {
 	}
 }
 
+type invalidCharError struct {
+	lexerError
+	token token
+	text  string
+}
+
+func (e invalidCharError) Error() string {
+	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
+}
+
+type unexpectedEOFError struct {
+	lexerError
+	expected rune
+}
+
+func (e unexpectedEOFError) Error() string {
+	return fmt.Sprintf("%v:%v: expected %q but found end of file", e.line, e.col, e.expected)
+}
+
 func (l *lexer) nextToken() {
 	if l.token == tokenEOF {
 		return
@@ -148,11 +148,11 @@ func (l *lexer) nextToken() {
 		if l.char == eot {
 			l.token = tokenInvalid
 			l.errs = append(l.errs, unexpectedEOFError{
+				expected: '"',
 				lexerError: lexerError{
 					col:  l.charCol,
 					line: l.charLine,
 				},
-				expected: '"',
 			})
 		} else {
 			l.token = tokenLiteral
@@ -187,8 +187,8 @@ func (l *lexer) nextToken() {
 				col:  l.charCol,
 				line: l.charLine,
 			},
-			token: l.token,
 			text:  l.text,
+			token: l.token,
 		})
 	}
 	l.nextChar()

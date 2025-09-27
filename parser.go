@@ -32,70 +32,15 @@ func (p *parser) expect(t token) {
 		p.nextToken()
 	} else {
 		p.errs = append(p.errs, expectedTokenError{
+			actual:   p.token,
+			expected: t,
 			lexerError: lexerError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
 			},
-			actual:   p.token,
-			expected: t,
-			text:     string(p.text),
+			text: string(p.text),
 		})
 	}
-}
-
-func (p *parser) parseGrammar() *Grammar {
-	var ps []*Production
-	if p.token == tokenIdentifier {
-		for p.token == tokenIdentifier {
-			ps = append(ps, p.parseProduction())
-		}
-		if p.token != tokenEOF {
-			p.errs = append(p.errs, expectedTokenError{
-				lexerError: lexerError{
-					col:  p.tokenCol,
-					line: p.tokenLine,
-				},
-				actual:   p.token,
-				expected: tokenEOF,
-			})
-		}
-	} else {
-		p.errs = append(p.errs, expectedTokenError{
-			lexerError: lexerError{
-				col:  1,
-				line: 1,
-			},
-			actual:   p.token,
-			expected: tokenIdentifier,
-		})
-	}
-	return &Grammar{Productions: ps}
-}
-
-func (p *parser) parseProduction() *Production {
-	prod := &Production{Identifier: &Identifier{Text: p.text}}
-	p.nextToken()
-	p.expect(tokenEqual)
-	prod.Expression = p.parseExpression()
-	p.expect(tokenPeriod)
-	return prod
-}
-
-func (p *parser) parseExpression() *Expression {
-	ts := []*Term{p.parseTerm()}
-	for p.token == tokenPipe {
-		p.nextToken()
-		ts = append(ts, p.parseTerm())
-	}
-	return &Expression{Terms: ts}
-}
-
-func (p *parser) parseTerm() *Term {
-	fs := []*Factor{p.parseFactor()}
-	for p.token < tokenPipe {
-		fs = append(fs, p.parseFactor())
-	}
-	return &Term{Factors: fs}
 }
 
 type invalidTokenError struct {
@@ -140,4 +85,59 @@ func (p *parser) parseFactor() *Factor {
 		})
 	}
 	return &f
+}
+
+func (p *parser) parseTerm() *Term {
+	fs := []*Factor{p.parseFactor()}
+	for p.token < tokenPipe {
+		fs = append(fs, p.parseFactor())
+	}
+	return &Term{Factors: fs}
+}
+
+func (p *parser) parseExpression() *Expression {
+	ts := []*Term{p.parseTerm()}
+	for p.token == tokenPipe {
+		p.nextToken()
+		ts = append(ts, p.parseTerm())
+	}
+	return &Expression{Terms: ts}
+}
+
+func (p *parser) parseProduction() *Production {
+	prod := &Production{Identifier: &Identifier{Text: p.text}}
+	p.nextToken()
+	p.expect(tokenEqual)
+	prod.Expression = p.parseExpression()
+	p.expect(tokenPeriod)
+	return prod
+}
+
+func (p *parser) parseGrammar() *Grammar {
+	var ps []*Production
+	if p.token == tokenIdentifier {
+		for p.token == tokenIdentifier {
+			ps = append(ps, p.parseProduction())
+		}
+		if p.token != tokenEOF {
+			p.errs = append(p.errs, expectedTokenError{
+				actual:   p.token,
+				expected: tokenEOF,
+				lexerError: lexerError{
+					col:  p.tokenCol,
+					line: p.tokenLine,
+				},
+			})
+		}
+	} else {
+		p.errs = append(p.errs, expectedTokenError{
+			actual:   p.token,
+			expected: tokenIdentifier,
+			lexerError: lexerError{
+				col:  1,
+				line: 1,
+			},
+		})
+	}
+	return &Grammar{Productions: ps}
 }
