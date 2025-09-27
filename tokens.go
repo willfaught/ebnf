@@ -5,19 +5,19 @@ import "fmt"
 type token int
 
 const (
-	tokenInvalid token = 0
-	tokenIdent   token = 1
-	tokenLiteral token = 2
-	tokenLparen  token = 3
-	tokenLbrak   token = 4
-	tokenLbrace  token = 5
-	tokenBar     token = 6
-	tokenEql     token = 7
-	tokenRparen  token = 8
-	tokenRbrak   token = 9
-	tokenRbrace  token = 10
-	tokenPeriod  token = 11
-	tokenEOF     token = 12
+	tokenInvalid token = iota
+	tokenIdent
+	tokenLiteral
+	tokenLparen
+	tokenLbrak
+	tokenLbrace
+	tokenBar
+	tokenEql
+	tokenRparen
+	tokenRbrak
+	tokenRbrace
+	tokenPeriod
+	tokenEOF
 )
 
 func tokenString(t token, text string) string {
