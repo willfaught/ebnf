@@ -7,15 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-type expectedRuneError struct {
-	textError
-	expected, actual rune
-}
-
-func (e expectedRuneError) Error() string {
-	return fmt.Sprintf("%v:%v: expected %q but found %q", e.line, e.col, e.expected, e.actual)
-}
-
 type expectedTokenError struct {
 	textError
 	expected, actual token
