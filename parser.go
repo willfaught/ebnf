@@ -43,11 +43,11 @@ func (p *parser) expect(t token) {
 	}
 }
 
-func (p *parser) grammar() *Grammar {
+func (p *parser) parseGrammar() *Grammar {
 	var ps []*Production
 	if p.token == tokenIdentifier {
 		for p.token == tokenIdentifier {
-			ps = append(ps, p.production())
+			ps = append(ps, p.parseProduction())
 		}
 		if p.token != tokenEOF {
 			p.errs = append(p.errs, expectedTokenError{
@@ -72,28 +72,28 @@ func (p *parser) grammar() *Grammar {
 	return &Grammar{Productions: ps}
 }
 
-func (p *parser) production() *Production {
+func (p *parser) parseProduction() *Production {
 	prod := &Production{Identifier: &Identifier{Text: p.text}}
 	p.nextToken()
 	p.expect(tokenEqual)
-	prod.Expression = p.expression()
+	prod.Expression = p.parseExpression()
 	p.expect(tokenPeriod)
 	return prod
 }
 
-func (p *parser) expression() *Expression {
-	ts := []*Term{p.term()}
+func (p *parser) parseExpression() *Expression {
+	ts := []*Term{p.parseTerm()}
 	for p.token == tokenPipe {
 		p.nextToken()
-		ts = append(ts, p.term())
+		ts = append(ts, p.parseTerm())
 	}
 	return &Expression{Terms: ts}
 }
 
-func (p *parser) term() *Term {
-	fs := []*Factor{p.factor()}
+func (p *parser) parseTerm() *Term {
+	fs := []*Factor{p.parseFactor()}
 	for p.token < tokenPipe {
-		fs = append(fs, p.factor())
+		fs = append(fs, p.parseFactor())
 	}
 	return &Term{Factors: fs}
 }
@@ -108,7 +108,7 @@ func (e invalidTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
 }
 
-func (p *parser) factor() *Factor {
+func (p *parser) parseFactor() *Factor {
 	var f Factor
 	switch p.token {
 	case tokenIdentifier:
@@ -119,15 +119,15 @@ func (p *parser) factor() *Factor {
 		p.nextToken()
 	case tokenLeftParen:
 		p.nextToken()
-		f.Group = p.expression()
+		f.Group = p.parseExpression()
 		p.expect(tokenRightParen)
 	case tokenLeftBracket:
 		p.nextToken()
-		f.Option = p.expression()
+		f.Option = p.parseExpression()
 		p.expect(tokenRightBracket)
 	case tokenLeftBrace:
 		p.nextToken()
-		f.Repetition = p.expression()
+		f.Repetition = p.parseExpression()
 		p.expect(tokenRightBrace)
 	default:
 		p.errs = append(p.errs, invalidTokenError{

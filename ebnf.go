@@ -109,7 +109,7 @@ func (g Grammar) String() string {
 // Parse returns a Grammar for a valid grammar, or an error otherwise.
 func Parse(s string) (*Grammar, error) {
 	p := newParser(bytes.NewBufferString(s))
-	g := p.grammar()
+	g := p.parseGrammar()
 	var errs []error
 	if len(p.lexer.errs) > 0 {
 		errs = p.lexer.errs
