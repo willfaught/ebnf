@@ -1,6 +1,9 @@
 package ebnf
 
-import "io"
+import (
+	"fmt"
+	"io"
+)
 
 type parser struct {
 	*lexer
@@ -12,6 +15,16 @@ func newParser(r io.RuneReader) *parser {
 	l.nextChar()
 	l.nextToken()
 	return &parser{lexer: l}
+}
+
+type expectedTokenError struct {
+	textError
+	expected, actual token
+	text             string
+}
+
+func (e expectedTokenError) Error() string {
+	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenString(e.expected, e.text), tokenString(e.actual, e.text))
 }
 
 func (p *parser) expect(t token) {

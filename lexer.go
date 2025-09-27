@@ -7,16 +7,6 @@ import (
 	"unicode/utf8"
 )
 
-type expectedTokenError struct {
-	textError
-	expected, actual token
-	text             string
-}
-
-func (e expectedTokenError) Error() string {
-	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenString(e.expected, e.text), tokenString(e.actual, e.text))
-}
-
 type invalidCharError struct {
 	textError
 	token token
