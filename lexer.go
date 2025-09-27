@@ -19,7 +19,8 @@ func (e expectedRuneError) Error() string {
 type token int
 
 const (
-	ident   token = 0
+	invalid token = 0
+	ident   token = 1
 	literal token = 2
 	lparen  token = 3
 	lbrak   token = 4
@@ -30,51 +31,52 @@ const (
 	rbrak   token = 9
 	rbrace  token = 10
 	period  token = 11
-	other   token = 12
+	eof     token = 12
 )
 
-var tokenString = map[token]string{
-	lparen: "(",
-	lbrak:  "[",
-	lbrace: "{",
-	bar:    "|",
-	eql:    "=",
-	rparen: ")",
-	rbrak:  "]",
-	rbrace: "}",
-	period: ".",
-}
-
-func tokenName(t token, text string) string {
+func tokenString(t token, text string) string {
 	var s string
 	switch t {
+	case invalid:
+		if text == "" {
+			s = "invalid syntax"
+		} else {
+			s = fmt.Sprintf("invalid syntax %q", text)
+		}
 	case ident:
-		s = "identifier"
+		if text == "" {
+			s = "identifier"
+		} else {
+			s = fmt.Sprintf("identifier %q", text)
+		}
 	case literal:
-		s = "literal"
-	case other:
-		s = fmt.Sprintf("%q", text)
-	default:
-		s2, ok := tokenString[t]
-		if !ok {
-			panic(t)
+		if text == "" {
+			s = "literal"
+		} else {
+			s = fmt.Sprintf("literal %q", text)
 		}
-		s = fmt.Sprintf("%q", s2)
-	}
-	return s
-}
-
-func tokenValue(t token, text string) string {
-	var s string
-	switch t {
-	case ident, literal, other:
-		s = fmt.Sprintf("%q", text)
+	case lparen:
+		s = "("
+	case lbrak:
+		s = "["
+	case lbrace:
+		s = "{"
+	case bar:
+		s = "|"
+	case eql:
+		s = "="
+	case rparen:
+		s = ")"
+	case rbrak:
+		s = "]"
+	case rbrace:
+		s = "}"
+	case period:
+		s = "."
+	case eof:
+		s = "end of file"
 	default:
-		s2, ok := tokenString[t]
-		if !ok {
-			panic(t)
-		}
-		s = fmt.Sprintf("%q", s2)
+		panic(t)
 	}
 	return s
 }
@@ -86,7 +88,7 @@ type expectedTokenError struct {
 }
 
 func (e expectedTokenError) Error() string {
-	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenName(e.expected, e.text), tokenValue(e.actual, e.text))
+	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenString(e.expected, e.text), tokenString(e.actual, e.text))
 }
 
 type unexpectedTokenError struct {
@@ -96,13 +98,25 @@ type unexpectedTokenError struct {
 }
 
 func (e unexpectedTokenError) Error() string {
-	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenValue(e.token, e.text))
+	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
 }
 
-type readError textError
+type readError struct {
+	textError
+	err error
+}
 
 func (e readError) Error() string {
-	return fmt.Sprintf("%v:%v: cannot read character", e.line, e.col)
+	return fmt.Sprintf("%v:%v: cannot read character: %v", e.line, e.col, e.err)
+}
+
+type unexpectedEOFError struct {
+	textError
+	expected rune
+}
+
+func (e unexpectedEOFError) Error() string {
+	return fmt.Sprintf("%v:%v: expected %q but found end of file", e.line, e.col, e.expected)
 }
 
 type textError struct {
@@ -130,19 +144,49 @@ func newLexer(r io.RuneReader) *lexer {
 	}
 }
 
+const eot = -1
+
 func (l *lexer) nextChar() {
+	if l.char == eot {
+		return
+	}
 	var err error
-	for {
-		l.char, _, err = l.reader.ReadRune()
-		if err == io.EOF {
-			l.char = 0
-			return
+	l.char, _, err = l.reader.ReadRune()
+	if err != nil {
+		if err != io.EOF {
+			l.errs = append(l.errs, readError{
+				err: err,
+				textError: textError{
+					col:  l.charCol,
+					line: l.charLine,
+				},
+			})
 		}
-		l.charCol++
-		if l.char != utf8.RuneError {
-			break
-		}
-		l.errs = append(l.errs, readError{line: l.charLine, col: l.charCol})
+		l.char = eot
+		return
+	}
+	l.charCol++
+	if l.char == utf8.RuneError {
+		l.errs = append(l.errs, readError{
+			err: fmt.Errorf("invalid utf-8 character"),
+			textError: textError{
+				col:  l.charCol,
+				line: l.charLine,
+			},
+		})
+		l.char = eot
+		return
+	}
+	if l.char == 0 {
+		l.errs = append(l.errs, readError{
+			err: fmt.Errorf("invalid null character"),
+			textError: textError{
+				col:  l.charCol,
+				line: l.charLine,
+			},
+		})
+		l.char = eot
+		return
 	}
 	if l.char == '\n' {
 		l.charCol = 1
@@ -151,8 +195,11 @@ func (l *lexer) nextChar() {
 }
 
 func (l *lexer) nextToken() {
-	if l.char == 0 {
-		l.token = other
+	if l.token == eof {
+		return
+	}
+	if l.char == eot {
+		l.token = eof
 		return
 	}
 	l.chars = l.chars[:0]
@@ -162,6 +209,10 @@ func (l *lexer) nextToken() {
 	}
 	l.tokenCol = l.charCol
 	l.tokenLine = l.charLine
+	if l.char == eot {
+		l.token = eof
+		return
+	}
 	for 'a' <= l.char && l.char <= 'z' || 'A' <= l.char && l.char <= 'Z' {
 		l.chars = append(l.chars, l.char)
 		l.nextChar()
@@ -173,23 +224,24 @@ func (l *lexer) nextToken() {
 	}
 	if l.char == '"' {
 		l.nextChar()
-		for l.char != 0 && l.char != '"' && !unicode.IsSpace(l.char) {
+		for l.char != eot && l.char != '"' {
 			l.chars = append(l.chars, l.char)
 			l.nextChar()
 		}
-		if l.char != '"' {
-			l.errs = append(l.errs, expectedRuneError{
+		l.text = string(l.chars)
+		if l.char == eot {
+			l.token = invalid
+			l.errs = append(l.errs, unexpectedEOFError{
 				textError: textError{
 					col:  l.charCol,
 					line: l.charLine,
 				},
 				expected: '"',
-				actual:   l.char,
 			})
+		} else {
+			l.token = literal
+			l.nextChar()
 		}
-		l.nextChar()
-		l.token = literal
-		l.text = string(l.chars)
 		return
 	}
 	switch l.char {
@@ -212,8 +264,16 @@ func (l *lexer) nextToken() {
 	case '.':
 		l.token = period
 	default:
-		l.token = other
+		l.token = invalid
 		l.text = string(l.char)
+		l.errs = append(l.errs, unexpectedTokenError{
+			textError: textError{
+				col:  l.charCol,
+				line: l.charLine,
+			},
+			token: l.token,
+			text:  l.text,
+		})
 	}
 	l.nextChar()
 }

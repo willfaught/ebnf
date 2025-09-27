@@ -31,19 +31,30 @@ func (p *parser) expect(t token) {
 }
 
 func (p *parser) grammar() *Grammar {
-	if p.token != ident {
+	var ps []*Production
+	if p.token == ident {
+		for p.token == ident {
+			ps = append(ps, p.prod())
+		}
+		if p.token != eof {
+			p.errs = append(p.errs, expectedTokenError{
+				textError: textError{
+					col:  p.tokenCol,
+					line: p.tokenLine,
+				},
+				actual:   p.token,
+				expected: eof,
+			})
+		}
+	} else {
 		p.errs = append(p.errs, expectedTokenError{
 			textError: textError{
-				col:  p.tokenCol,
-				line: p.tokenLine,
+				col:  1,
+				line: 1,
 			},
 			actual:   p.token,
 			expected: ident,
 		})
-	}
-	var ps []*Production
-	for p.token == ident {
-		ps = append(ps, p.prod())
 	}
 	return &Grammar{Productions: ps}
 }
@@ -97,9 +108,12 @@ func (p *parser) factor() *Factor {
 		p.expect(rbrace)
 	default:
 		p.errs = append(p.errs, unexpectedTokenError{
-			textError: textError{col: p.tokenCol, line: p.tokenLine},
-			token:     p.token,
-			text:      p.text,
+			textError: textError{
+				col:  p.tokenCol,
+				line: p.tokenLine,
+			},
+			text:  p.text,
+			token: p.token,
 		})
 	}
 	return &f
