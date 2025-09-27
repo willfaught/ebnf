@@ -98,6 +98,16 @@ func (p *parser) term() *Term {
 	return &Term{Factors: fs}
 }
 
+type invalidTokenError struct {
+	lexerError
+	token token
+	text  string
+}
+
+func (e invalidTokenError) Error() string {
+	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
+}
+
 func (p *parser) factor() *Factor {
 	var f Factor
 	switch p.token {
@@ -120,7 +130,7 @@ func (p *parser) factor() *Factor {
 		f.Repetition = p.expr()
 		p.expect(tokenRightBrace)
 	default:
-		p.errs = append(p.errs, invalidCharError{
+		p.errs = append(p.errs, invalidTokenError{
 			lexerError: lexerError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
