@@ -134,7 +134,7 @@ func (l *lexer) nextToken() {
 		l.nextChar()
 	}
 	if len(l.chars) > 0 {
-		l.token = tokenIdent
+		l.token = tokenIdentifier
 		l.text = string(l.chars)
 		return
 	}
@@ -162,21 +162,21 @@ func (l *lexer) nextToken() {
 	}
 	switch l.char {
 	case '=':
-		l.token = tokenEql
+		l.token = tokenEqual
 	case '(':
-		l.token = tokenLparen
+		l.token = tokenLeftParen
 	case ')':
-		l.token = tokenRparen
+		l.token = tokenRightParen
 	case '[':
-		l.token = tokenLbrak
+		l.token = tokenLeftBracket
 	case ']':
-		l.token = tokenRbrak
+		l.token = tokenRightBracket
 	case '{':
-		l.token = tokenLbrace
+		l.token = tokenLeftBrace
 	case '}':
-		l.token = tokenRbrace
+		l.token = tokenRightBrace
 	case '|':
-		l.token = tokenBar
+		l.token = tokenPipe
 	case '.':
 		l.token = tokenPeriod
 	default:

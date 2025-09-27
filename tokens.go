@@ -6,16 +6,16 @@ type token int
 
 const (
 	tokenInvalid token = iota
-	tokenIdent
+	tokenIdentifier
 	tokenLiteral
-	tokenLparen
-	tokenLbrak
-	tokenLbrace
-	tokenBar
-	tokenEql
-	tokenRparen
-	tokenRbrak
-	tokenRbrace
+	tokenLeftParen
+	tokenLeftBracket
+	tokenLeftBrace
+	tokenPipe
+	tokenEqual
+	tokenRightParen
+	tokenRightBracket
+	tokenRightBrace
 	tokenPeriod
 	tokenEOF
 )
@@ -29,7 +29,7 @@ func tokenString(t token, text string) string {
 		} else {
 			s = fmt.Sprintf("invalid syntax %q", text)
 		}
-	case tokenIdent:
+	case tokenIdentifier:
 		if text == "" {
 			s = "identifier"
 		} else {
@@ -41,21 +41,21 @@ func tokenString(t token, text string) string {
 		} else {
 			s = fmt.Sprintf("literal %q", text)
 		}
-	case tokenLparen:
+	case tokenLeftParen:
 		s = "("
-	case tokenLbrak:
+	case tokenLeftBracket:
 		s = "["
-	case tokenLbrace:
+	case tokenLeftBrace:
 		s = "{"
-	case tokenBar:
+	case tokenPipe:
 		s = "|"
-	case tokenEql:
+	case tokenEqual:
 		s = "="
-	case tokenRparen:
+	case tokenRightParen:
 		s = ")"
-	case tokenRbrak:
+	case tokenRightBracket:
 		s = "]"
-	case tokenRbrace:
+	case tokenRightBrace:
 		s = "}"
 	case tokenPeriod:
 		s = "."

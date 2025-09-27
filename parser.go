@@ -45,8 +45,8 @@ func (p *parser) expect(t token) {
 
 func (p *parser) grammar() *Grammar {
 	var ps []*Production
-	if p.token == tokenIdent {
-		for p.token == tokenIdent {
+	if p.token == tokenIdentifier {
+		for p.token == tokenIdentifier {
 			ps = append(ps, p.prod())
 		}
 		if p.token != tokenEOF {
@@ -66,7 +66,7 @@ func (p *parser) grammar() *Grammar {
 				line: 1,
 			},
 			actual:   p.token,
-			expected: tokenIdent,
+			expected: tokenIdentifier,
 		})
 	}
 	return &Grammar{Productions: ps}
@@ -75,7 +75,7 @@ func (p *parser) grammar() *Grammar {
 func (p *parser) prod() *Production {
 	prod := &Production{Identifier: &Identifier{Text: p.text}}
 	p.nextToken()
-	p.expect(tokenEql)
+	p.expect(tokenEqual)
 	prod.Expression = p.expr()
 	p.expect(tokenPeriod)
 	return prod
@@ -83,7 +83,7 @@ func (p *parser) prod() *Production {
 
 func (p *parser) expr() *Expression {
 	ts := []*Term{p.term()}
-	for p.token == tokenBar {
+	for p.token == tokenPipe {
 		p.nextToken()
 		ts = append(ts, p.term())
 	}
@@ -92,7 +92,7 @@ func (p *parser) expr() *Expression {
 
 func (p *parser) term() *Term {
 	fs := []*Factor{p.factor()}
-	for p.token < tokenBar {
+	for p.token < tokenPipe {
 		fs = append(fs, p.factor())
 	}
 	return &Term{Factors: fs}
@@ -101,24 +101,24 @@ func (p *parser) term() *Term {
 func (p *parser) factor() *Factor {
 	var f Factor
 	switch p.token {
-	case tokenIdent:
+	case tokenIdentifier:
 		f.Identifier = &Identifier{Text: p.text}
 		p.nextToken()
 	case tokenLiteral:
 		f.Literal = &Literal{Text: p.text}
 		p.nextToken()
-	case tokenLparen:
+	case tokenLeftParen:
 		p.nextToken()
 		f.Group = p.expr()
-		p.expect(tokenRparen)
-	case tokenLbrak:
+		p.expect(tokenRightParen)
+	case tokenLeftBracket:
 		p.nextToken()
 		f.Option = p.expr()
-		p.expect(tokenRbrak)
-	case tokenLbrace:
+		p.expect(tokenRightBracket)
+	case tokenLeftBrace:
 		p.nextToken()
 		f.Repetition = p.expr()
-		p.expect(tokenRbrace)
+		p.expect(tokenRightBrace)
 	default:
 		p.errs = append(p.errs, invalidCharError{
 			lexerError: lexerError{
