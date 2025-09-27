@@ -13,7 +13,7 @@ type expectedRuneError struct {
 }
 
 func (e expectedRuneError) Error() string {
-	return fmt.Sprintf("%v:%v: expected character %q but found character %q", e.line, e.col, e.expected, e.actual)
+	return fmt.Sprintf("%v:%v: expected %q but found %q", e.line, e.col, e.expected, e.actual)
 }
 
 type token int
