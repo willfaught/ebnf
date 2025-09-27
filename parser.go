@@ -47,7 +47,7 @@ func (p *parser) grammar() *Grammar {
 	var ps []*Production
 	if p.token == tokenIdentifier {
 		for p.token == tokenIdentifier {
-			ps = append(ps, p.prod())
+			ps = append(ps, p.production())
 		}
 		if p.token != tokenEOF {
 			p.errs = append(p.errs, expectedTokenError{
@@ -72,16 +72,16 @@ func (p *parser) grammar() *Grammar {
 	return &Grammar{Productions: ps}
 }
 
-func (p *parser) prod() *Production {
+func (p *parser) production() *Production {
 	prod := &Production{Identifier: &Identifier{Text: p.text}}
 	p.nextToken()
 	p.expect(tokenEqual)
-	prod.Expression = p.expr()
+	prod.Expression = p.expression()
 	p.expect(tokenPeriod)
 	return prod
 }
 
-func (p *parser) expr() *Expression {
+func (p *parser) expression() *Expression {
 	ts := []*Term{p.term()}
 	for p.token == tokenPipe {
 		p.nextToken()
@@ -119,15 +119,15 @@ func (p *parser) factor() *Factor {
 		p.nextToken()
 	case tokenLeftParen:
 		p.nextToken()
-		f.Group = p.expr()
+		f.Group = p.expression()
 		p.expect(tokenRightParen)
 	case tokenLeftBracket:
 		p.nextToken()
-		f.Option = p.expr()
+		f.Option = p.expression()
 		p.expect(tokenRightBracket)
 	case tokenLeftBrace:
 		p.nextToken()
-		f.Repetition = p.expr()
+		f.Repetition = p.expression()
 		p.expect(tokenRightBrace)
 	default:
 		p.errs = append(p.errs, invalidTokenError{
