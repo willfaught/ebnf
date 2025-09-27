@@ -17,13 +17,13 @@ func (e expectedTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: expected %v but found %v", e.line, e.col, tokenString(e.expected, e.text), tokenString(e.actual, e.text))
 }
 
-type unexpectedTokenError struct {
+type invalidCharError struct {
 	textError
 	token token
 	text  string
 }
 
-func (e unexpectedTokenError) Error() string {
+func (e invalidCharError) Error() string {
 	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
 }
 
@@ -192,7 +192,7 @@ func (l *lexer) nextToken() {
 	default:
 		l.token = invalid
 		l.text = string(l.char)
-		l.errs = append(l.errs, unexpectedTokenError{
+		l.errs = append(l.errs, invalidCharError{
 			textError: textError{
 				col:  l.charCol,
 				line: l.charLine,

@@ -107,7 +107,7 @@ func (p *parser) factor() *Factor {
 		f.Repetition = p.expr()
 		p.expect(rbrace)
 	default:
-		p.errs = append(p.errs, unexpectedTokenError{
+		p.errs = append(p.errs, invalidCharError{
 			textError: textError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
