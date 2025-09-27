@@ -8,7 +8,7 @@ import (
 )
 
 type invalidCharError struct {
-	textError
+	lexerError
 	token token
 	text  string
 }
@@ -18,7 +18,7 @@ func (e invalidCharError) Error() string {
 }
 
 type readError struct {
-	textError
+	lexerError
 	err error
 }
 
@@ -27,7 +27,7 @@ func (e readError) Error() string {
 }
 
 type unexpectedEOFError struct {
-	textError
+	lexerError
 	expected rune
 }
 
@@ -35,7 +35,7 @@ func (e unexpectedEOFError) Error() string {
 	return fmt.Sprintf("%v:%v: expected %q but found end of file", e.line, e.col, e.expected)
 }
 
-type textError struct {
+type lexerError struct {
 	line, col int
 }
 
@@ -72,7 +72,7 @@ func (l *lexer) nextChar() {
 		if err != io.EOF {
 			l.errs = append(l.errs, readError{
 				err: err,
-				textError: textError{
+				lexerError: lexerError{
 					col:  l.charCol,
 					line: l.charLine,
 				},
@@ -85,7 +85,7 @@ func (l *lexer) nextChar() {
 	if l.char == utf8.RuneError {
 		l.errs = append(l.errs, readError{
 			err: fmt.Errorf("invalid utf-8 character"),
-			textError: textError{
+			lexerError: lexerError{
 				col:  l.charCol,
 				line: l.charLine,
 			},
@@ -96,7 +96,7 @@ func (l *lexer) nextChar() {
 	if l.char == 0 {
 		l.errs = append(l.errs, readError{
 			err: fmt.Errorf("invalid null character"),
-			textError: textError{
+			lexerError: lexerError{
 				col:  l.charCol,
 				line: l.charLine,
 			},
@@ -148,7 +148,7 @@ func (l *lexer) nextToken() {
 		if l.char == eot {
 			l.token = invalid
 			l.errs = append(l.errs, unexpectedEOFError{
-				textError: textError{
+				lexerError: lexerError{
 					col:  l.charCol,
 					line: l.charLine,
 				},
@@ -183,7 +183,7 @@ func (l *lexer) nextToken() {
 		l.token = invalid
 		l.text = string(l.char)
 		l.errs = append(l.errs, invalidCharError{
-			textError: textError{
+			lexerError: lexerError{
 				col:  l.charCol,
 				line: l.charLine,
 			},

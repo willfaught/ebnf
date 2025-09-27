@@ -18,7 +18,7 @@ func newParser(r io.RuneReader) *parser {
 }
 
 type expectedTokenError struct {
-	textError
+	lexerError
 	expected, actual token
 	text             string
 }
@@ -32,7 +32,7 @@ func (p *parser) expect(t token) {
 		p.nextToken()
 	} else {
 		p.errs = append(p.errs, expectedTokenError{
-			textError: textError{
+			lexerError: lexerError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
 			},
@@ -51,7 +51,7 @@ func (p *parser) grammar() *Grammar {
 		}
 		if p.token != eof {
 			p.errs = append(p.errs, expectedTokenError{
-				textError: textError{
+				lexerError: lexerError{
 					col:  p.tokenCol,
 					line: p.tokenLine,
 				},
@@ -61,7 +61,7 @@ func (p *parser) grammar() *Grammar {
 		}
 	} else {
 		p.errs = append(p.errs, expectedTokenError{
-			textError: textError{
+			lexerError: lexerError{
 				col:  1,
 				line: 1,
 			},
@@ -121,7 +121,7 @@ func (p *parser) factor() *Factor {
 		p.expect(rbrace)
 	default:
 		p.errs = append(p.errs, invalidCharError{
-			textError: textError{
+			lexerError: lexerError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
 			},
