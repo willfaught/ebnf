@@ -111,11 +111,11 @@ func (l *lexer) nextChar() {
 }
 
 func (l *lexer) nextToken() {
-	if l.token == eof {
+	if l.token == tokenEOF {
 		return
 	}
 	if l.char == eot {
-		l.token = eof
+		l.token = tokenEOF
 		return
 	}
 	l.chars = l.chars[:0]
@@ -126,7 +126,7 @@ func (l *lexer) nextToken() {
 	l.tokenCol = l.charCol
 	l.tokenLine = l.charLine
 	if l.char == eot {
-		l.token = eof
+		l.token = tokenEOF
 		return
 	}
 	for 'a' <= l.char && l.char <= 'z' || 'A' <= l.char && l.char <= 'Z' {
@@ -134,7 +134,7 @@ func (l *lexer) nextToken() {
 		l.nextChar()
 	}
 	if len(l.chars) > 0 {
-		l.token = ident
+		l.token = tokenIdent
 		l.text = string(l.chars)
 		return
 	}
@@ -146,7 +146,7 @@ func (l *lexer) nextToken() {
 		}
 		l.text = string(l.chars)
 		if l.char == eot {
-			l.token = invalid
+			l.token = tokenInvalid
 			l.errs = append(l.errs, unexpectedEOFError{
 				lexerError: lexerError{
 					col:  l.charCol,
@@ -155,32 +155,32 @@ func (l *lexer) nextToken() {
 				expected: '"',
 			})
 		} else {
-			l.token = literal
+			l.token = tokenLiteral
 			l.nextChar()
 		}
 		return
 	}
 	switch l.char {
 	case '=':
-		l.token = eql
+		l.token = tokenEql
 	case '(':
-		l.token = lparen
+		l.token = tokenLparen
 	case ')':
-		l.token = rparen
+		l.token = tokenRparen
 	case '[':
-		l.token = lbrak
+		l.token = tokenLbrak
 	case ']':
-		l.token = rbrak
+		l.token = tokenRbrak
 	case '{':
-		l.token = lbrace
+		l.token = tokenLbrace
 	case '}':
-		l.token = rbrace
+		l.token = tokenRbrace
 	case '|':
-		l.token = bar
+		l.token = tokenBar
 	case '.':
-		l.token = period
+		l.token = tokenPeriod
 	default:
-		l.token = invalid
+		l.token = tokenInvalid
 		l.text = string(l.char)
 		l.errs = append(l.errs, invalidCharError{
 			lexerError: lexerError{

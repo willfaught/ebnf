@@ -45,18 +45,18 @@ func (p *parser) expect(t token) {
 
 func (p *parser) grammar() *Grammar {
 	var ps []*Production
-	if p.token == ident {
-		for p.token == ident {
+	if p.token == tokenIdent {
+		for p.token == tokenIdent {
 			ps = append(ps, p.prod())
 		}
-		if p.token != eof {
+		if p.token != tokenEOF {
 			p.errs = append(p.errs, expectedTokenError{
 				lexerError: lexerError{
 					col:  p.tokenCol,
 					line: p.tokenLine,
 				},
 				actual:   p.token,
-				expected: eof,
+				expected: tokenEOF,
 			})
 		}
 	} else {
@@ -66,7 +66,7 @@ func (p *parser) grammar() *Grammar {
 				line: 1,
 			},
 			actual:   p.token,
-			expected: ident,
+			expected: tokenIdent,
 		})
 	}
 	return &Grammar{Productions: ps}
@@ -75,15 +75,15 @@ func (p *parser) grammar() *Grammar {
 func (p *parser) prod() *Production {
 	prod := &Production{Identifier: &Identifier{Text: p.text}}
 	p.nextToken()
-	p.expect(eql)
+	p.expect(tokenEql)
 	prod.Expression = p.expr()
-	p.expect(period)
+	p.expect(tokenPeriod)
 	return prod
 }
 
 func (p *parser) expr() *Expression {
 	ts := []*Term{p.term()}
-	for p.token == bar {
+	for p.token == tokenBar {
 		p.nextToken()
 		ts = append(ts, p.term())
 	}
@@ -92,7 +92,7 @@ func (p *parser) expr() *Expression {
 
 func (p *parser) term() *Term {
 	fs := []*Factor{p.factor()}
-	for p.token < bar {
+	for p.token < tokenBar {
 		fs = append(fs, p.factor())
 	}
 	return &Term{Factors: fs}
@@ -101,24 +101,24 @@ func (p *parser) term() *Term {
 func (p *parser) factor() *Factor {
 	var f Factor
 	switch p.token {
-	case ident:
+	case tokenIdent:
 		f.Identifier = &Identifier{Text: p.text}
 		p.nextToken()
-	case literal:
+	case tokenLiteral:
 		f.Literal = &Literal{Text: p.text}
 		p.nextToken()
-	case lparen:
+	case tokenLparen:
 		p.nextToken()
 		f.Group = p.expr()
-		p.expect(rparen)
-	case lbrak:
+		p.expect(tokenRparen)
+	case tokenLbrak:
 		p.nextToken()
 		f.Option = p.expr()
-		p.expect(rbrak)
-	case lbrace:
+		p.expect(tokenRbrak)
+	case tokenLbrace:
 		p.nextToken()
 		f.Repetition = p.expr()
-		p.expect(rbrace)
+		p.expect(tokenRbrace)
 	default:
 		p.errs = append(p.errs, invalidCharError{
 			lexerError: lexerError{
