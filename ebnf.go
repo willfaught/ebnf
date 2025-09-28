@@ -493,7 +493,7 @@ func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[
 	return nil
 }
 
-// LL1 returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
+// LL1 returns whether a valid grammar would have a first/first or first/follow conflict for an LL(1) parser.
 // Either a FirstFirstConflictError, a FirstFollowConflictError, or nil are returned.
 func (g Grammar) LL1() error {
 	first := g.First()
