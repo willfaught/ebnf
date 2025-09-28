@@ -16,7 +16,7 @@
 // They can be parsed by [Parse] into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
 // [Grammar.First] and [Grammar.Follow] compute the first and follow sets for nonterminal identifiers.
-// [Grammar.Conflict] determines whether a valid grammar can be parsed by an LL(1) parser.
+// [Grammar.LL1] determines whether a valid grammar can be parsed by an LL(1) parser.
 //
 // [Extended Backus-Naur Form]: https://en.wikipedia.org/wiki/Extended_Backus–Naur_form
 // [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
@@ -493,9 +493,9 @@ func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[
 	return nil
 }
 
-// Conflict returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
+// LL1 returns whether a valid grammar has a first/first or first/follow conflict for an LL(1) parser.
 // Either a FirstFirstConflictError, a FirstFollowConflictError, or nil are returned.
-func (g Grammar) Conflict() error {
+func (g Grammar) LL1() error {
 	first := g.First()
 	follow := g.follow(first)
 	if err := g.firstFirstConflict(first); err != nil {

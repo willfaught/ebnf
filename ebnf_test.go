@@ -748,7 +748,7 @@ func TestGrammarString(t *testing.T) {
 	}
 }
 
-func TestGrammarConflict(t *testing.T) {
+func TestGrammarLL1(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		grammar string
@@ -778,7 +778,7 @@ func TestGrammarConflict(t *testing.T) {
 			t.Error("validate error:", err)
 			continue
 		}
-		if a, e := g.Conflict(), test.err; !cmp.Equal(a, e) {
+		if a, e := g.LL1(), test.err; !cmp.Equal(a, e) {
 			t.Error("wrong conflict:\n", cmp.Diff(a, e))
 		}
 	}
