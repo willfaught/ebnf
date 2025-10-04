@@ -91,6 +91,15 @@ func (l *lexer) nextChar() {
 	}
 }
 
+type incompleteTokenError struct {
+	lexerError
+	token token
+}
+
+func (e incompleteTokenError) Error() string {
+	return fmt.Sprintf("%v:%v: incomplete %v", e.line, e.col, tokenString(e.token, ""))
+}
+
 type invalidEscapeError struct {
 	lexerError
 	char rune
@@ -107,15 +116,6 @@ type unexpectedCharError struct {
 
 func (e unexpectedCharError) Error() string {
 	return fmt.Sprintf(`%v:%v: unexpected character "%c"`, e.line, e.col, e.char)
-}
-
-type unexpectedEOFError struct {
-	lexerError
-	expected rune
-}
-
-func (e unexpectedEOFError) Error() string {
-	return fmt.Sprintf("%v:%v: expected %q but found end of file", e.line, e.col, e.expected)
 }
 
 func (l *lexer) nextToken() {
@@ -174,12 +174,12 @@ func (l *lexer) nextToken() {
 				}
 				if char == 0 {
 					if char == eot {
-						l.errs = append(l.errs, unexpectedEOFError{
-							expected: '"',
+						l.errs = append(l.errs, incompleteTokenError{
 							lexerError: lexerError{
 								col:  l.charCol,
 								line: l.charLine,
 							},
+							token: tokenLiteral,
 						})
 						return
 					} else {
@@ -202,12 +202,12 @@ func (l *lexer) nextToken() {
 		l.text = string(l.chars)
 		if l.char == eot {
 			l.token = tokenInvalid
-			l.errs = append(l.errs, unexpectedEOFError{
-				expected: '"',
+			l.errs = append(l.errs, incompleteTokenError{
 				lexerError: lexerError{
 					col:  l.charCol,
 					line: l.charLine,
 				},
+				token: tokenLiteral,
 			})
 		} else {
 			l.token = tokenLiteral
