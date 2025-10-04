@@ -28,9 +28,7 @@ func (e expectedTokenError) Error() string {
 }
 
 func (p *parser) expect(t token) {
-	if p.token == t {
-		p.nextToken()
-	} else {
+	if p.token != t {
 		p.errs = append(p.errs, expectedTokenError{
 			actual:   p.token,
 			expected: t,
@@ -41,6 +39,7 @@ func (p *parser) expect(t token) {
 			text: string(p.text),
 		})
 	}
+	p.nextToken()
 }
 
 type unexpectedTokenError struct {
