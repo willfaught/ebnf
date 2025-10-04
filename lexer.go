@@ -97,7 +97,7 @@ type incompleteTokenError struct {
 }
 
 func (e incompleteTokenError) Error() string {
-	return fmt.Sprintf("%v:%v: incomplete %v", e.line, e.col, tokenString(e.token, ""))
+	return fmt.Sprintf("%v:%v: incomplete %v caused by end of file", e.line, e.col, tokenString(e.token, ""))
 }
 
 type invalidEscapeError struct {
