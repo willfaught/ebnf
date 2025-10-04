@@ -28,7 +28,7 @@ func (e expectedTokenError) Error() string {
 }
 
 func (p *parser) expect(t token) {
-	if p.token != t {
+	if p.token != tokenInvalid && p.token != t {
 		p.errs = append(p.errs, expectedTokenError{
 			actual:   p.token,
 			expected: t,
@@ -73,6 +73,7 @@ func (p *parser) parseFactor() *Factor {
 		p.nextToken()
 		f.Repetition = p.parseExpression()
 		p.expect(tokenRightBrace)
+	case tokenInvalid:
 	default:
 		p.errs = append(p.errs, unexpectedTokenError{
 			lexerError: lexerError{
