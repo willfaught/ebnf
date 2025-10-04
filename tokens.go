@@ -17,7 +17,7 @@ const (
 	tokenRightBracket
 	tokenRightBrace
 	tokenPeriod
-	tokenEOF
+	tokenEnd
 )
 
 func tokenString(t token, text string) string {
@@ -59,8 +59,8 @@ func tokenString(t token, text string) string {
 		s = `token "}"`
 	case tokenPeriod:
 		s = `token "."`
-	case tokenEOF:
-		s = "end of file"
+	case tokenEnd:
+		s = "end of tokens"
 	default:
 		panic(t)
 	}

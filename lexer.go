@@ -119,7 +119,7 @@ func (e unexpectedCharError) Error() string {
 }
 
 func (l *lexer) nextToken() {
-	if l.token == tokenEOF {
+	if l.token == tokenEnd {
 		return
 	}
 	l.chars = l.chars[:0]
@@ -130,7 +130,7 @@ func (l *lexer) nextToken() {
 	l.tokenCol = l.charCol
 	l.tokenLine = l.charLine
 	if l.char == eot {
-		l.token = tokenEOF
+		l.token = tokenEnd
 		return
 	}
 	for 'a' <= l.char && l.char <= 'z' || 'A' <= l.char && l.char <= 'Z' {
@@ -181,7 +181,7 @@ func (l *lexer) nextToken() {
 				}
 				if char == 0 {
 					if char == eot {
-						l.token = tokenEOF
+						l.token = tokenEnd
 						l.errs = append(l.errs, incompleteTokenError{
 							lexerError: lexerError{
 								col:  l.charCol,

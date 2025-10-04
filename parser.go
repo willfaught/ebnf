@@ -119,10 +119,10 @@ func (p *parser) parseGrammar() *Grammar {
 		for p.token == tokenIdentifier {
 			ps = append(ps, p.parseProduction())
 		}
-		if p.token != tokenEOF {
+		if p.token != tokenEnd {
 			p.errs = append(p.errs, expectedTokenError{
 				actual:   p.token,
-				expected: tokenEOF,
+				expected: tokenEnd,
 				lexerError: lexerError{
 					col:  p.tokenCol,
 					line: p.tokenLine,
