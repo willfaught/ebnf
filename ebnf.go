@@ -1,7 +1,7 @@
-// Package ebnf represents and parses a variant of [Extended Backus-Naur Form] called [Wirth Syntax Notation].
-// Terminal identifiers must begin with a lowercase letter.
-// Nonterminal identifiers must begin with an uppercase letter.
+// Package ebnf parses, represents, and inspects a variant of [Extended Backus-Naur Form] called [Wirth Syntax Notation].
 // The first production defines the start nonterminal identifier.
+// Nonterminal identifiers must begin with an uppercase letter.
+// Terminal identifiers must begin with a lowercase letter.
 // Terminal identifiers are assumed to be defined elsewhere and not cause conflicts.
 // Epsilon is represented by an empty literal.
 //
@@ -18,7 +18,7 @@
 //	Option = "[" Expression "]".
 //	Repetition = "{" Expression "}".
 //
-// They can be parsed by [Parse] into a [Grammar].
+// [Parse] parses a grammar into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
 // [Grammar.First] and [Grammar.Follow] compute the first and follow sets for nonterminal identifiers.
 // [Grammar.LL1] determines whether a valid grammar can be parsed by an LL(1) parser.
