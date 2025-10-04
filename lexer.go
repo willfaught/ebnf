@@ -122,10 +122,6 @@ func (l *lexer) nextToken() {
 	if l.token == tokenEOF {
 		return
 	}
-	if l.char == eot {
-		l.token = tokenEOF
-		return
-	}
 	l.chars = l.chars[:0]
 	l.text = ""
 	for unicode.IsSpace(l.char) {
