@@ -91,14 +91,14 @@ func (l *lexer) nextChar() {
 	}
 }
 
-type invalidCharError struct {
+type invalidTokenError struct {
 	lexerError
 	token token
 	text  string
 }
 
-func (e invalidCharError) Error() string {
-	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
+func (e invalidTokenError) Error() string {
+	return fmt.Sprintf("%v:%v: invalid %v", e.line, e.col, tokenString(e.token, e.text))
 }
 
 type unexpectedEOFError struct {
@@ -182,7 +182,7 @@ func (l *lexer) nextToken() {
 	default:
 		l.token = tokenInvalid
 		l.text = string(l.char)
-		l.errs = append(l.errs, invalidCharError{
+		l.errs = append(l.errs, invalidTokenError{
 			lexerError: lexerError{
 				col:  l.charCol,
 				line: l.charLine,
