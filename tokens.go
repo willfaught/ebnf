@@ -8,16 +8,16 @@ const (
 	tokenInvalid token = iota
 	tokenEnd
 	tokenIdentifier
-	tokenLiteral
-	tokenLeftParen
-	tokenLeftBracket
 	tokenLeftBrace
-	tokenPipe
+	tokenLeftBracket
+	tokenLeftParen
+	tokenLiteral
 	tokenEqual
-	tokenRightParen
-	tokenRightBracket
-	tokenRightBrace
 	tokenPeriod
+	tokenPipe
+	tokenRightBrace
+	tokenRightBracket
+	tokenRightParen
 )
 
 func tokenString(t token, text string) string {
