@@ -47,6 +47,7 @@ func (l *lexer) nextChar() {
 	if l.char == eot {
 		return
 	}
+	l.charCol++
 	var err error
 	l.char, _, err = l.reader.ReadRune()
 	if err != nil {
@@ -62,7 +63,6 @@ func (l *lexer) nextChar() {
 		l.char = eot
 		return
 	}
-	l.charCol++
 	if l.char == utf8.RuneError {
 		l.errs = append(l.errs, readError{
 			err: fmt.Errorf("invalid utf-8 character"),
