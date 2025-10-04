@@ -43,13 +43,13 @@ func (p *parser) expect(t token) {
 	}
 }
 
-type invalidTokenError struct {
+type unexpectedTokenError struct {
 	lexerError
 	token token
 	text  string
 }
 
-func (e invalidTokenError) Error() string {
+func (e unexpectedTokenError) Error() string {
 	return fmt.Sprintf("%v:%v: unexpected %v", e.line, e.col, tokenString(e.token, e.text))
 }
 
@@ -75,7 +75,7 @@ func (p *parser) parseFactor() *Factor {
 		f.Repetition = p.parseExpression()
 		p.expect(tokenRightBrace)
 	default:
-		p.errs = append(p.errs, invalidTokenError{
+		p.errs = append(p.errs, unexpectedTokenError{
 			lexerError: lexerError{
 				col:  p.tokenCol,
 				line: p.tokenLine,
