@@ -138,6 +138,7 @@ func (l *lexer) nextToken() {
 		l.nextChar()
 	}
 	if l.char == eot {
+		l.token = tokenInvalid
 		l.errs = append(l.errs, incompleteTokenError{
 			lexerError: lexerError{
 				col:  l.charCol,
@@ -180,6 +181,7 @@ func (l *lexer) nextToken() {
 				}
 				if char == 0 {
 					if char == eot {
+						l.token = tokenEOF
 						l.errs = append(l.errs, incompleteTokenError{
 							lexerError: lexerError{
 								col:  l.charCol,
@@ -189,6 +191,7 @@ func (l *lexer) nextToken() {
 						})
 						return
 					} else {
+						l.token = tokenInvalid
 						l.errs = append(l.errs, invalidEscapeError{
 							char: l.char,
 							lexerError: lexerError{
