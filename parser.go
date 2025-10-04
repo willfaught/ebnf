@@ -89,7 +89,7 @@ func (p *parser) parseFactor() *Factor {
 
 func (p *parser) parseTerm() *Term {
 	fs := []*Factor{p.parseFactor()}
-	for tokenInvalid < p.token && p.token < tokenPipe {
+	for tokenEnd < p.token && p.token < tokenPipe {
 		fs = append(fs, p.parseFactor())
 	}
 	return &Term{Factors: fs}

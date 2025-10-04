@@ -6,6 +6,7 @@ type token int
 
 const (
 	tokenInvalid token = iota
+	tokenEnd
 	tokenIdentifier
 	tokenLiteral
 	tokenLeftParen
@@ -17,7 +18,6 @@ const (
 	tokenRightBracket
 	tokenRightBrace
 	tokenPeriod
-	tokenEnd
 )
 
 func tokenString(t token, text string) string {
