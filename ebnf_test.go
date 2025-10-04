@@ -245,6 +245,17 @@ TA = F TB.
 TB = "*" F TB | "".
 F = id | "(" EA ")".`
 
+const wsn = `Grammar = {Production}.
+Production = Identifier "=" Expression ".".
+Expression = Term {"|" Term}.
+Term = Factor {Factor}.
+Factor = Group | Identifier | Literal | Option | Repetition.
+Group = "(" Expression ")".
+Identifier = letter {letter}.
+Literal = "\"" {character} "\"".
+Option = "[" Expression "]".
+Repetition = "{" Expression "}".`
+
 func TestParseValid(t *testing.T) {
 	t.Parallel()
 	for _, test := range []string{
@@ -293,6 +304,7 @@ func TestParseValidateValid(t *testing.T) {
 		arith,
 		modula2,
 		oberon2,
+		wsn,
 	} {
 		t.Log(test)
 		g, err := Parse(test)

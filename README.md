@@ -4,10 +4,15 @@ Package ebnf represents and parses a variant of [Extended Backus-Naur Form](http
 
 Grammars are written like so:
 
-	Expression = Term {("+" | "-") Term}.
-	Term = Factor {("*" | "/") Factor}.
-	Factor = Number | "(" Expression ")".
-	Number = Digit {Digit}.
-	Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9".
+	Grammar = {Production}.
+	Production = Identifier "=" Expression ".".
+	Expression = Term {"|" Term}.
+	Term = Factor {Factor}.
+	Factor = Group | Identifier | Literal | Option | Repetition.
+	Group = "(" Expression ")".
+	Identifier = letter {letter}.
+	Literal = "\"" {character} "\"".
+	Option = "[" Expression "]".
+	Repetition = "{" Expression "}".
 
 They can be parsed by [Parse](https://pkg.go.dev/github.com/willfaught/ebnf#Parse) into a [Grammar](https://pkg.go.dev/github.com/willfaught/ebnf#Grammar). [Grammar.Validate](https://pkg.go.dev/github.com/willfaught/ebnf#Grammar.Validate) determines whether a grammar is valid. [Grammar.First](https://pkg.go.dev/github.com/willfaught/ebnf#Grammar.First) and [Grammar.Follow](https://pkg.go.dev/github.com/willfaught/ebnf#Grammar.Follow) compute the first and follow sets for nonterminal identifiers. [Grammar.LL1](https://pkg.go.dev/github.com/willfaught/ebnf#Grammar.LL1) determines whether a valid grammar can be parsed by an LL(1) parser.

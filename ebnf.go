@@ -7,11 +7,16 @@
 //
 // Grammars are written like so:
 //
-//	Expression = Term {("+" | "-") Term}.
-//	Term = Factor {("*" | "/") Factor}.
-//	Factor = Number | "(" Expression ")".
-//	Number = Digit {Digit}.
-//	Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9".
+//	Grammar = {Production}.
+//	Production = Identifier "=" Expression ".".
+//	Expression = Term {"|" Term}.
+//	Term = Factor {Factor}.
+//	Factor = Group | Identifier | Literal | Option | Repetition.
+//	Group = "(" Expression ")".
+//	Identifier = letter {letter}.
+//	Literal = "\"" {character} "\"".
+//	Option = "[" Expression "]".
+//	Repetition = "{" Expression "}".
 //
 // They can be parsed by [Parse] into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
