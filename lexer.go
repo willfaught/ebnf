@@ -141,6 +141,16 @@ func (l *lexer) nextToken() {
 		l.chars = append(l.chars, l.char)
 		l.nextChar()
 	}
+	if l.char == eot {
+		l.errs = append(l.errs, incompleteTokenError{
+			lexerError: lexerError{
+				col:  l.charCol,
+				line: l.charLine,
+			},
+			token: tokenIdentifier,
+		})
+		return
+	}
 	if len(l.chars) > 0 {
 		l.token = tokenIdentifier
 		l.text = string(l.chars)
