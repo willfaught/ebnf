@@ -97,7 +97,7 @@ type invalidEscapeError struct {
 }
 
 func (e invalidEscapeError) Error() string {
-	return fmt.Sprintf(`%v:%v: invalid escape character "%c"`, e.line, e.col, e.char)
+	return fmt.Sprintf(`%v:%v: invalid escape code "%c"`, e.line, e.col, e.char)
 }
 
 type invalidTokenError struct {
