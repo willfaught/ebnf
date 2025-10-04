@@ -100,13 +100,13 @@ func (e invalidEscapeError) Error() string {
 	return fmt.Sprintf(`%v:%v: invalid escape code "%c"`, e.line, e.col, e.char)
 }
 
-type invalidTokenError struct {
+type unexpectedCharError struct {
 	lexerError
-	text string
+	char rune
 }
 
-func (e invalidTokenError) Error() string {
-	return fmt.Sprintf("%v:%v: invalid token %q", e.line, e.col, e.text)
+func (e unexpectedCharError) Error() string {
+	return fmt.Sprintf(`%v:%v: unexpected character "%c"`, e.line, e.col, e.char)
 }
 
 type unexpectedEOFError struct {
@@ -237,12 +237,12 @@ func (l *lexer) nextToken() {
 	default:
 		l.token = tokenInvalid
 		l.text = string(l.char)
-		l.errs = append(l.errs, invalidTokenError{
+		l.errs = append(l.errs, unexpectedCharError{
 			lexerError: lexerError{
 				col:  l.charCol,
 				line: l.charLine,
 			},
-			text: l.text,
+			char: l.char,
 		})
 	}
 	l.nextChar()
