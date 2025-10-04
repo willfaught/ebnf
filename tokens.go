@@ -42,23 +42,23 @@ func tokenString(t token, text string) string {
 			s = fmt.Sprintf("literal %q", text)
 		}
 	case tokenLeftParen:
-		s = "("
+		s = `"("`
 	case tokenLeftBracket:
-		s = "["
+		s = `"["`
 	case tokenLeftBrace:
-		s = "{"
+		s = `"{"`
 	case tokenPipe:
-		s = "|"
+		s = `"|"`
 	case tokenEqual:
-		s = "="
+		s = `"="`
 	case tokenRightParen:
-		s = ")"
+		s = `")"`
 	case tokenRightBracket:
-		s = "]"
+		s = `"]"`
 	case tokenRightBrace:
-		s = "}"
+		s = `"}"`
 	case tokenPeriod:
-		s = "."
+		s = `"."`
 	case tokenEOF:
 		s = "end of file"
 	default:
