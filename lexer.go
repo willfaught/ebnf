@@ -189,7 +189,6 @@ func (l *lexer) nextToken() {
 							},
 							token: tokenLiteral,
 						})
-						return
 					} else {
 						l.token = tokenInvalid
 						l.errs = append(l.errs, invalidEscapeError{
@@ -200,6 +199,7 @@ func (l *lexer) nextToken() {
 							},
 						})
 					}
+					return
 				} else {
 					l.chars = append(l.chars, char)
 				}
