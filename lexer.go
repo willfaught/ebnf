@@ -91,6 +91,15 @@ func (l *lexer) nextChar() {
 	}
 }
 
+type invalidEscapeError struct {
+	lexerError
+	char rune
+}
+
+func (e invalidEscapeError) Error() string {
+	return fmt.Sprintf(`%v:%v: invalid escape character "%c"`, e.line, e.col, e.char)
+}
+
 type invalidTokenError struct {
 	lexerError
 	text string
@@ -140,7 +149,54 @@ func (l *lexer) nextToken() {
 	if l.char == '"' {
 		l.nextChar()
 		for l.char != eot && l.char != '"' {
-			l.chars = append(l.chars, l.char)
+			if l.char == '\\' {
+				l.nextChar()
+				var char rune
+				switch l.char {
+				case 'a':
+					char = '\a'
+				case 'b':
+					char = '\b'
+				case 'f':
+					char = '\f'
+				case 'n':
+					char = '\n'
+				case 'r':
+					char = '\r'
+				case 't':
+					char = '\t'
+				case 'v':
+					char = '\v'
+				case '"':
+					char = '"'
+				case '\\':
+					char = '\\'
+				}
+				if char == 0 {
+					if char == eot {
+						l.errs = append(l.errs, unexpectedEOFError{
+							expected: '"',
+							lexerError: lexerError{
+								col:  l.charCol,
+								line: l.charLine,
+							},
+						})
+						return
+					} else {
+						l.errs = append(l.errs, invalidEscapeError{
+							char: l.char,
+							lexerError: lexerError{
+								col:  l.charCol,
+								line: l.charLine,
+							},
+						})
+					}
+				} else {
+					l.chars = append(l.chars, char)
+				}
+			} else {
+				l.chars = append(l.chars, l.char)
+			}
 			l.nextChar()
 		}
 		l.text = string(l.chars)
