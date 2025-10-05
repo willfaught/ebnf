@@ -20,11 +20,13 @@
 //
 // [Parse] parses a grammar into a [Grammar].
 // [Grammar.Validate] determines whether a grammar is valid.
-// [Grammar.First] and [Grammar.Follow] compute the first and follow sets for nonterminal identifiers.
-// [Grammar.LL1] determines whether a valid grammar can be parsed by an LL(1) parser.
+// [Grammar.First] computes the first terminals.
+// [Grammar.FirstNonterminals] and [Grammar.Follow] compute the [first and follow terminals] for nonterminal identifiers.
+// [Grammar.LL1] determines whether a valid grammar has parse conflicts for an LL(1) parser.
 //
 // [Extended Backus-Naur Form]: https://en.wikipedia.org/wiki/Extended_Backus–Naur_form
 // [Wirth Syntax Notation]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
+// [first and follow terminals]: https://en.wikipedia.org/wiki/LL_parser#Conflicts
 package ebnf
 
 import (
@@ -35,30 +37,36 @@ import (
 	"unicode/utf8"
 )
 
-// Identifier is a terminal or nonterminal identifier.
-// The text must not be empty.
+// Identifier is the text of a terminal or nonterminal identifier.
+// The text must contain only lowercase and uppercase English letters and must not be empty.
 type Identifier struct {
 	Text string
 }
 
 // String returns the text.
+// For example, for "foo", it returns "foo".
 func (i Identifier) String() string {
 	return i.Text
 }
 
-// Literal is the content of a quoted string.
+// Literal is the text between the quotes of a literal.
 // If the text is empty, it represents epsilon, the empty string.
 type Literal struct {
 	Text string
 }
 
-// String returns the text surrounded by double quotes.
+// String returns the text surrounded by quotes.
+// For example, for "foo", it returns `"foo"`.
 func (l Literal) String() string {
 	return fmt.Sprintf("%q", l.Text)
 }
 
-// Factor is a term sequence.
-// One, and only one, of the fields must not be nil.
+// Factor is either a group, identifier, literal, option, or repetition.
+// Group groups syntax.
+// Option is optional syntax.
+// Repetition is syntax that occurs zero or more times.
+// Identifier and Literal are concrete syntax.
+// All fields must be nil except one.
 type Factor struct {
 	Group      *Expression
 	Identifier *Identifier
@@ -67,10 +75,11 @@ type Factor struct {
 	Repetition *Expression
 }
 
-// String returns a group string surrounded by round brackets,
-// an option string surrounded by square brackets,
-// a repetition string surrounded by curly brackets,
-// and an identifier or literal string as itself.
+// String returns a string representation of the non-nil field.
+// For Group, its string is surrounded by round brackets like "(...)".
+// For Option, its string is surrounded by square brackets like "[...]".
+// For Repetition, its string is surrounded by curly brackets like "{...}".
+// For Identifier and Literal, their string is returned unchanged.
 func (f Factor) String() string {
 	switch {
 	case f.Group != nil:
@@ -89,13 +98,13 @@ func (f Factor) String() string {
 }
 
 // Term is an expression alternative.
-// There must be at least one factor.
+// It has a list of one or more factors.
 // All factors must not be nil.
 type Term struct {
 	Factors []*Factor
 }
 
-// String returns the factor strings joined by a space.
+// String returns the factor strings separated by a space.
 func (t Term) String() string {
 	ss := make([]string, len(t.Factors))
 	for i, f := range t.Factors {
@@ -104,14 +113,14 @@ func (t Term) String() string {
 	return strings.Join(ss, " ")
 }
 
-// Expression is the right side of a production.
-// There must be at least one term.
+// Expression is a production expression.
+// It has a list of one or more terms.
 // All terms must not be nil.
 type Expression struct {
 	Terms []*Term
 }
 
-// String returns the term strings joined by " | ".
+// String returns the term strings separated by " | ".
 func (e Expression) String() string {
 	ss := make([]string, len(e.Terms))
 	for i, t := range e.Terms {
@@ -127,24 +136,25 @@ type Production struct {
 	Expression *Expression
 }
 
-// String returns the identifier and expression separated by " = ",
-// followed by a period.
+// String returns the identifier and expression strings separated by " = "
+// and followed by a period.
 func (p Production) String() string {
 	return fmt.Sprintf("%s = %v.", p.Identifier, p.Expression)
 }
 
-// Grammar is an abstract syntax tree for a grammar.
-// There must be at least one production.
+// Grammar is a grammar.
+// It has a list of one or more productions.
+// All productions must not be nil.
 type Grammar struct {
 	Productions []*Production
 }
 
-// Error has all parse errors.
+// Error has all lexer and parser errors.
 type Error struct {
 	Errors []error
 }
 
-// Error returns all the error strings joined by a line feed.
+// Error returns the error strings separated by a line feed.
 func (e Error) Error() string {
 	ss := make([]string, len(e.Errors))
 	for i, err := range e.Errors {
@@ -410,19 +420,19 @@ func (g Grammar) follow(first map[any]map[any]struct{}) map[string]map[any]struc
 }
 
 // Follow returns the follow terminals of a valid grammar.
-// The map keys are nonterminal [Identifier] text values.
+// The map keys are nonterminal identifier strings.
 // The map values are sets of [Identifier] and [Literal] values.
 func (g Grammar) Follow() map[string]map[any]struct{} {
 	return g.follow(g.First())
 }
 
-// FirstFirstConflictError is a first/first LL(1) grammar parse conflict.
+// FirstFirstConflictError indicates that a grammar is not LL(1) due to a first/first conflict.
 type FirstFirstConflictError struct {
 	Nonterminal string
 	Terminal    any // an Identifier or Literal
 }
 
-// Error indicates a first/first conflict exists for an LL(1) parser
+// Error explains the conflict for the nonterminal and terminal involved.
 func (f FirstFirstConflictError) Error() string {
 	var kind, content string
 	switch t := f.Terminal.(type) {
@@ -453,12 +463,13 @@ func (g Grammar) firstFirstConflict(first map[any]map[any]struct{}) error {
 	return nil
 }
 
-// FirstFollowConflictError is a first/follow LL(1) grammar parse conflict.
+// FirstFollowConflictError indicates that a grammar is not LL(1) due to a first/follow conflict.
 type FirstFollowConflictError struct {
 	Nonterminal string
 	Terminal    any // an Identifier or Literal
 }
 
+// Error explains the conflict for the nonterminal and terminal involved.
 func (f FirstFollowConflictError) Error() string {
 	var kind, content string
 	switch t := f.Terminal.(type) {
@@ -498,8 +509,8 @@ func (g Grammar) firstFollowConflict(first map[any]map[any]struct{}, follow map[
 	return nil
 }
 
-// LL1 returns whether a valid grammar would have a first/first or first/follow conflict for an LL(1) parser.
-// Either a FirstFirstConflictError, a FirstFollowConflictError, or nil are returned.
+// LL1 determines whether a valid grammar is LL(1).
+// It returns first/first and first/follow conflicts.
 func (g Grammar) LL1() error {
 	first := g.First()
 	follow := g.follow(first)
@@ -569,7 +580,7 @@ func traverse(item any, visit func(any)) {
 	}
 }
 
-// Validate checks that production identifiers are capitalized, defined, and used.
+// Validate checks that production nonterminal identifiers are capitalized, defined, and used.
 func (g Grammar) Validate() error {
 	var errs []error
 	used := map[string]bool{}
