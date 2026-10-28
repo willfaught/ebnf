@@ -32,6 +32,7 @@ package ebnf
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -181,9 +182,7 @@ func Parse(s string) (*Grammar, error) {
 }
 
 func merge(from, to map[any]struct{}) {
-	for k, v := range from {
-		to[k] = v
-	}
+	maps.Copy(to, from)
 }
 
 func terminal(i *Identifier) bool {
@@ -329,9 +328,7 @@ func firstFactorsCopy(first map[any]map[any]struct{}, fs []*Factor) map[any]stru
 		return this
 	}
 	copy := make(map[any]struct{}, len(this))
-	for k, v := range this {
-		copy[k] = v
-	}
+	maps.Copy(copy, this)
 	delete(this, Literal{})
 	merge(firstFactorsCopy(first, fs[1:]), copy)
 	return copy
